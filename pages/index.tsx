@@ -1561,26 +1561,26 @@ function AttendancePanel({
   return (
     <section className="attendance-panel" aria-label="Employee attendance tracking">
       <div className="attendance-toolbar">
-        <label className="filter-control">
-          <CalendarDays size={15} />
-          <span>Date selection</span>
-          <select aria-label="Attendance date selection" value={dateSelectionMode} onChange={(event) => setDateSelectionMode(event.target.value as 'single' | 'between')}>
-            <option value="single">Single date</option>
-            <option value="between">Between dates</option>
-          </select>
-        </label>
-        <label className="filter-control">
-          <CalendarDays size={15} />
-          <span>{dateSelectionMode === 'between' ? 'From' : 'Date'}</span>
-          <input aria-label="Attendance date" type="date" value={date} onChange={(event) => onDateChange(event.target.value)} />
-        </label>
-        {dateSelectionMode === 'between' && (
+        <div className={`attendance-date-controls${dateSelectionMode === 'between' ? ' is-range' : ''}`} aria-label="Attendance date range">
           <label className="filter-control">
             <CalendarDays size={15} />
-            <span>To</span>
-            <input aria-label="Attendance end date" type="date" min={date} value={endDate} onChange={(event) => onEndDateChange(event.target.value)} />
+            <span>Selection</span>
+            <select aria-label="Attendance date selection" value={dateSelectionMode} onChange={(event) => setDateSelectionMode(event.target.value as 'single' | 'between')}>
+              <option value="single">Single date</option>
+              <option value="between">Date range</option>
+            </select>
           </label>
-        )}
+          <label className="filter-control attendance-date-field">
+            <span>{dateSelectionMode === 'between' ? 'From' : 'Date'}</span>
+            <input aria-label="Attendance date" type="date" value={date} onChange={(event) => onDateChange(event.target.value)} />
+          </label>
+          {dateSelectionMode === 'between' && (
+            <label className="filter-control attendance-date-field">
+              <span>To</span>
+              <input aria-label="Attendance end date" type="date" min={date} value={endDate} onChange={(event) => onEndDateChange(event.target.value)} />
+            </label>
+          )}
+        </div>
         <label className="filter-control">
           <MapPin size={15} />
           <span>Site</span>
