@@ -870,7 +870,6 @@ export default function Home() {
                           requestAnimationFrame(() => document.getElementById('employee-onboarding')?.scrollIntoView({ behavior: 'smooth' }));
                         }}
                         onDelete={handleDeleteEmployee}
-                        onAgreement={printEmploymentAgreement}
                       />
                     ))
                   )}
@@ -1204,7 +1203,6 @@ function TeamGroup({
   onEdit,
   onDuplicate,
   onDelete,
-  onAgreement,
 }: {
   title: string;
   employees: Employee[];
@@ -1213,7 +1211,6 @@ function TeamGroup({
   onEdit: (employee: Employee) => void;
   onDuplicate: (employee: Employee) => void;
   onDelete: (id: number) => void;
-  onAgreement: (employee: Employee) => void;
 }) {
   const visibleEmployees = expanded ? employees : employees.slice(0, collapsedEmployeeLimit);
   const hiddenCount = Math.max(0, employees.length - collapsedEmployeeLimit);
@@ -1261,16 +1258,15 @@ function TeamGroup({
                   </button>
                 )}
                 {employee.site_name?.toLowerCase().includes('clove cafe') && (
-                  <button
+                  <a
                     className="soft-button compact mobile-icon-action"
-                    title="Generate employment agreement"
-                    aria-label="Generate employment agreement"
-                    type="button"
-                    onClick={() => onAgreement(employee)}
+                    title="Download employment agreement PDF"
+                    aria-label="Download employment agreement PDF"
+                    href={`/api/reports/agreement?employee_id=${employee.id}`}
                   >
                     <Download size={14} />
                     <span className="mobile-action-label">Agreement</span>
-                  </button>
+                  </a>
                 )}
                 <button
                   className="icon-button small"
