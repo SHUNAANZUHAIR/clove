@@ -5,6 +5,7 @@ import {
   Bell,
   BriefcaseBusiness,
   CalendarDays,
+  ClipboardCheck,
   Check,
   ChevronRight,
   CircleDollarSign,
@@ -89,7 +90,17 @@ interface SiteTeam {
   employee_name: string;
 }
 
-type Tab = 'profile' | 'salary' | 'site';
+interface AttendanceRecord {
+  id: number | null;
+  employee_id: number;
+  employee_name: string;
+  id_number: string | null;
+  site_name: string | null;
+  status: 'present' | 'absent' | 'leave' | 'off';
+  notes: string;
+}
+
+type Tab = 'profile' | 'salary' | 'attendance' | 'site';
 type SalaryScope = 'employee' | 'site';
 type EmployeeType = 'local' | 'clove_expats' | 'full_time_expats';
 type JobLevel = 'labour' | 'mason' | 'carpenter' | 'supervisor';
@@ -251,6 +262,10 @@ export default function Home() {
   const [teamSelections, setTeamSelections] = useState<Record<number, string>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().slice(0, 10));
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [attendanceSaving, setAttendanceSaving] = useState(false);
 
   const [profileForm, setProfileForm] = useState(emptyProfileForm);
   const [salaryForm, setSalaryForm] = useState(freshSalaryForm);
@@ -267,6 +282,11 @@ export default function Home() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'attendance') return;
+    fetchAttendance(attendanceDate);
+  }, [activeTab, attendanceDate]);
 
   useEffect(() => {
     if (salaryForm.scope !== 'site' || !salaryForm.site_id) {
@@ -325,6 +345,39 @@ export default function Home() {
     if (res.ok) {
       const data = await res.json();
       setSalaryTransactions(data);
+    }
+  };
+
+  const fetchAttendance = async (date: string) => {
+    setAttendanceLoading(true);
+    try {
+      const res = await fetch(`/api/attendance?date=${date}`);
+      if (!res.ok) throw new Error('Could not load attendance');
+      setAttendanceRecords(await res.json());
+    } catch (error) {
+      console.error(error);
+      setAttendanceRecords([]);
+    } finally {
+      setAttendanceLoading(false);
+    }
+  };
+
+  const saveAttendance = async () => {
+    setAttendanceSaving(true);
+    try {
+      const res = await fetch('/api/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: attendanceDate, records: attendanceRecords }),
+      });
+      if (!res.ok) throw new Error('Could not save attendance');
+      await fetchAttendance(attendanceDate);
+      alert('Attendance saved.');
+    } catch (error) {
+      console.error(error);
+      alert('Attendance could not be saved. Please try again.');
+    } finally {
+      setAttendanceSaving(false);
     }
   };
 
@@ -642,11 +695,13 @@ export default function Home() {
   const totalPayroll = salaryTransactions.reduce((sum, transaction) => sum + Number(transaction.net_salary), 0);
   const salaryTargets = getSalaryTargets(salaryForm, employees, salarySiteMemberIds);
 
-  const title = activeTab === 'profile' ? 'Welcome, Clove' : activeTab === 'salary' ? 'Payroll' : 'Work Sites';
+  const title = activeTab === 'profile' ? 'Welcome, Clove' : activeTab === 'salary' ? 'Payroll' : activeTab === 'attendance' ? 'Attendance' : 'Work Sites';
   const subtitle = activeTab === 'profile'
     ? `${employees.length} employees across ${sites.length} sites`
     : activeTab === 'salary'
       ? `${filteredSalaryTransactions.length} salary records`
+      : activeTab === 'attendance'
+        ? `${attendanceRecords.length} employees for ${formatDate(attendanceDate)}`
       : `${sites.length} active locations`;
 
   return (
@@ -695,6 +750,10 @@ export default function Home() {
           <button className={activeTab === 'salary' ? 'is-active' : ''} onClick={() => setActiveTab('salary')} type="button">
             <CircleDollarSign size={17} />
             Salary
+          </button>
+          <button className={activeTab === 'attendance' ? 'is-active' : ''} onClick={() => setActiveTab('attendance')} type="button">
+            <ClipboardCheck size={17} />
+            Attendance
           </button>
           <button className={activeTab === 'site' ? 'is-active' : ''} onClick={() => setActiveTab('site')} type="button">
             <MapPin size={17} />
@@ -926,6 +985,19 @@ export default function Home() {
 
                 </div>
               </section>
+            )}
+
+            {activeTab === 'attendance' && (
+              <AttendancePanel
+                date={attendanceDate}
+                records={attendanceRecords}
+                search={search}
+                loading={attendanceLoading}
+                saving={attendanceSaving}
+                onDateChange={setAttendanceDate}
+                onChange={setAttendanceRecords}
+                onSave={saveAttendance}
+              />
             )}
 
             {activeTab === 'site' && (
@@ -1332,6 +1404,118 @@ function EmployeeForm({
           </div>
         </fieldset>
       </form>
+    </section>
+  );
+}
+
+function AttendancePanel({
+  date,
+  records,
+  search,
+  loading,
+  saving,
+  onDateChange,
+  onChange,
+  onSave,
+}: {
+  date: string;
+  records: AttendanceRecord[];
+  search: string;
+  loading: boolean;
+  saving: boolean;
+  onDateChange: (date: string) => void;
+  onChange: (records: AttendanceRecord[]) => void;
+  onSave: () => void;
+}) {
+  const visibleRecords = records.filter((record) => (
+    !search ||
+    record.employee_name.toLowerCase().includes(search) ||
+    record.id_number?.toLowerCase().includes(search) ||
+    record.site_name?.toLowerCase().includes(search)
+  ));
+  const counts = records.reduce((summary, record) => {
+    summary[record.status] += 1;
+    return summary;
+  }, { present: 0, absent: 0, leave: 0, off: 0 });
+
+  const updateRecord = (employeeId: number, updates: Partial<AttendanceRecord>) => {
+    onChange(records.map((record) => record.employee_id === employeeId ? { ...record, ...updates } : record));
+  };
+
+  return (
+    <section className="attendance-panel" aria-label="Employee attendance tracking">
+      <div className="attendance-toolbar">
+        <label className="filter-control">
+          <CalendarDays size={15} />
+          <span>Date</span>
+          <input aria-label="Attendance date" type="date" value={date} onChange={(event) => onDateChange(event.target.value)} />
+        </label>
+        <button
+          className="soft-button"
+          type="button"
+          onClick={() => onChange(records.map((record) => ({ ...record, status: 'present' })))}
+          disabled={loading || records.length === 0}
+        >
+          <Check size={16} />
+          Mark all present
+        </button>
+        <button className="dark-button" type="button" onClick={onSave} disabled={loading || saving || records.length === 0}>
+          <Save size={16} />
+          {saving ? 'Saving...' : 'Save attendance'}
+        </button>
+      </div>
+
+      <section className="metric-grid attendance-summary" aria-label="Attendance summary">
+        <SummaryCard label="Present" value={counts.present.toString()} icon={<Check size={18} />} />
+        <SummaryCard label="Absent" value={counts.absent.toString()} icon={<X size={18} />} />
+        <SummaryCard label="Leave / Off" value={(counts.leave + counts.off).toString()} icon={<CalendarDays size={18} />} />
+      </section>
+
+      <SectionHeader title="Daily attendance" action={`${visibleRecords.length} employees`} />
+      <div className="table-shell">
+        <table className="salary-table attendance-table">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Site</th>
+              <th>Status</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr className="empty-table-row"><td colSpan={4}>Loading attendance...</td></tr>
+            ) : visibleRecords.length === 0 ? (
+              <tr className="empty-table-row"><td colSpan={4}>No employees found</td></tr>
+            ) : visibleRecords.map((record) => (
+              <tr key={record.employee_id}>
+                <td><strong>{record.employee_name}</strong><small>{record.id_number || 'No ID'}</small></td>
+                <td>{record.site_name || 'Unassigned'}</td>
+                <td>
+                  <select
+                    aria-label={`Attendance status for ${record.employee_name}`}
+                    value={record.status}
+                    onChange={(event) => updateRecord(record.employee_id, { status: event.target.value as AttendanceRecord['status'] })}
+                  >
+                    <option value="present">Present</option>
+                    <option value="absent">Absent</option>
+                    <option value="leave">Leave</option>
+                    <option value="off">Off day</option>
+                  </select>
+                </td>
+                <td>
+                  <input
+                    aria-label={`Attendance notes for ${record.employee_name}`}
+                    value={record.notes}
+                    onChange={(event) => updateRecord(record.employee_id, { notes: event.target.value })}
+                    placeholder="Optional note"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

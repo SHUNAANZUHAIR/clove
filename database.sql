@@ -81,6 +81,19 @@ CREATE TABLE IF NOT EXISTS salary_transactions (
 );
 
 
+-- Create daily employee attendance table
+CREATE TABLE IF NOT EXISTS attendance (
+    id SERIAL PRIMARY KEY,
+    employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    attendance_date DATE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'present',
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(employee_id, attendance_date)
+);
+
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_salary_employee ON salary_transactions(employee_id);
 CREATE INDEX IF NOT EXISTS idx_salary_month_year ON salary_transactions(month, year);
@@ -89,6 +102,8 @@ CREATE INDEX IF NOT EXISTS idx_employee_type ON employees(employee_type);
 CREATE INDEX IF NOT EXISTS idx_employee_job_level ON employees(job_level);
 CREATE INDEX IF NOT EXISTS idx_site_team_site ON site_team(site_id);
 CREATE INDEX IF NOT EXISTS idx_site_team_employee ON site_team(employee_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(attendance_date);
+CREATE INDEX IF NOT EXISTS idx_attendance_employee ON attendance(employee_id);
 
 
 -- Insert sample data

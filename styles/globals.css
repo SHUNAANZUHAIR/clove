@@ -1759,6 +1759,57 @@ button:disabled {
 }
 
 
+.attendance-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.attendance-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.attendance-toolbar .filter-control {
+  margin-right: auto;
+}
+
+.attendance-toolbar input[type="date"],
+.attendance-table select,
+.attendance-table input {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  padding: 8px 10px;
+}
+
+.attendance-table {
+  min-width: 700px;
+}
+
+.attendance-table select {
+  min-width: 110px;
+}
+
+.attendance-table input {
+  width: 100%;
+  min-width: 180px;
+}
+
+.attendance-table td:first-child small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.attendance-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 @media (max-width: 460px) {
   .app-shell {
     padding: 12px;
