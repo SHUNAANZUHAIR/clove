@@ -864,7 +864,10 @@ export default function Home() {
                           ...current,
                           [group.value]: !current[group.value],
                         }))}
-                        onEdit={(employee) => setProfileForm(employeeToProfileForm(employee))}
+                        onEdit={(employee) => {
+                          setProfileForm(employeeToProfileForm(employee));
+                          requestAnimationFrame(() => document.getElementById('employee-onboarding')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+                        }}
                         onDuplicate={(employee) => {
                           setProfileForm(employeeToProfileForm(employee, true));
                           requestAnimationFrame(() => document.getElementById('employee-onboarding')?.scrollIntoView({ behavior: 'smooth' }));
