@@ -15,6 +15,7 @@ interface AgreementSection {
   heading?: string;
   text?: string;
   details?: Array<[string, string]>;
+  signatures?: { employerName: string; employeeName: string };
 }
 
 const employer = 'CLOVE CAFE & BISTRO (ST00060328)';
@@ -99,7 +100,13 @@ export function createAgreementPdf(employee: AgreementEmployee) {
     { heading: '10. DISCIPLINE AND GRIEVANCES', text: 'Disciplinary action shall be based on reasonable cause and fair procedure. The Employee may raise a grievance without retaliation and may use any statutory complaint or tribunal process.' },
     { heading: '11. TERMINATION AND NOTICE', text: `After probation, either party may terminate this Agreement by written notice, or payment in lieu where lawful, using at least the statutory notice period or any longer period written here: ${value(employee.notice_period, 'As required by law')}.` },
     { heading: '12. GOVERNING LAW AND ENTIRE AGREEMENT', text: 'This Agreement is governed by the laws of the Republic of Maldives, including the Employment Act and applicable regulations. Any less favorable term shall be replaced by the applicable mandatory statutory right. Changes must be in writing and signed by both parties.' },
-    { heading: 'SIGNATURES', text: `For the Employer\nName: ${value(employee.employer_signatory)}\n\nSignature: ______________________________    Date: _______________\n\nEmployee\nName: ${value(employee.name)}\n\nSignature: ______________________________    Date: _______________` },
+    {
+      heading: 'SIGNATURES',
+      signatures: {
+        employerName: value(employee.employer_signatory),
+        employeeName: value(employee.name),
+      },
+    },
   ];
   return renderDocument(sections);
 }
@@ -140,6 +147,7 @@ function renderDocument(sections: AgreementSection[]) {
     const tableTop = y;
     let rowTop = tableTop;
     preparedRows.forEach((row, index) => {
+      if (index % 2 === 0) content += drawRect(margin, rowTop, contentWidth, rowHeights[index], '0.975 0.98 0.98');
       row.label.forEach((line, lineIndex) => { content += drawText(margin + padding, rowTop + padding + fontSize + lineIndex * lineHeight, line, fontSize, true); });
       row.detail.forEach((line, lineIndex) => { content += drawText(margin + labelWidth + padding, rowTop + padding + fontSize + lineIndex * lineHeight, line, fontSize); });
       rowTop += rowHeights[index];
@@ -151,27 +159,52 @@ function renderDocument(sections: AgreementSection[]) {
     content += drawLine(pageWidth - margin, tableTop, pageWidth - margin, rowTop, '0.72 0.72 0.72');
     y = rowTop + 12;
   };
+  const addSectionHeading = (heading: string) => {
+    ensureSpace(32);
+    content += drawRect(margin, y, contentWidth, 23, '0.92 0.95 0.97');
+    content += drawLine(margin, y, margin, y + 23, '0.18 0.42 0.55');
+    content += drawText(margin + 9, y + 15, heading, 10.2, true, '0.10 0.25 0.34');
+    y += 30;
+  };
+  const addSignaturePanel = (signatures: { employerName: string; employeeName: string }) => {
+    ensureSpace(162);
+    const panelTop = y;
+    content += drawRect(margin, panelTop, contentWidth, 145, '0.985 0.985 0.98');
+    content += drawLine(margin, panelTop, pageWidth - margin, panelTop, '0.72 0.72 0.70');
+    content += drawLine(margin, panelTop + 145, pageWidth - margin, panelTop + 145, '0.72 0.72 0.70');
+    content += drawText(margin + 12, panelTop + 19, 'EMPLOYEE DIGITAL SIGNATURE PREVIEW', 8.5, true, '0.30 0.30 0.30');
+    content += drawText(margin + 12, panelTop + 50, signatures.employeeName, 19, false, '0.10 0.25 0.38', 'F3');
+    content += drawLine(margin + 12, panelTop + 60, margin + 250, panelTop + 60, '0.35 0.35 0.35');
+    content += drawText(margin + 12, panelTop + 75, 'Generated from the employee record - requires employee confirmation.', 7.8, false, '0.45 0.45 0.45');
+    content += drawText(margin + 12, panelTop + 98, `Employee: ${signatures.employeeName}`, 9);
+    content += drawText(margin + 12, panelTop + 122, 'Confirmed signature: __________________________', 9);
+    content += drawText(pageWidth - margin - 160, panelTop + 122, 'Date: _______________', 9);
+    content += drawText(margin + 12, panelTop + 139, `For the Employer: ${signatures.employerName}`, 8.5, false, '0.35 0.35 0.35');
+    y = panelTop + 157;
+  };
   newPage();
   content += drawCentered('EMPLOYMENT AGREEMENT', 82, 17, true);
   y = 108;
   sections.forEach((section) => {
-    if (section.heading) { ensureSpace(34); addWrapped(section.heading, 10.5, true, 4); }
+    if (section.heading) addSectionHeading(section.heading);
     if (section.details) addDetailsTable(section.details);
     if (section.text) addWrapped(section.text, 9.5, false, 10);
+    if (section.signatures) addSignaturePanel(section.signatures);
   });
   pages.push(content);
   return buildPdf(pages.map((page, index) => page + drawLine(margin, footerY - 10, pageWidth - margin, footerY - 10, '0.84 0.84 0.84')
     + drawText(margin, footerY + 4, 'Clove Cafe & Bistro - Employment Agreement', 8, false, '0.40 0.40 0.40')
-    + drawText(pageWidth - margin - 55, footerY + 4, `Page ${index + 1} of ${pages.length}`, 8, false, '0.40 0.40 0.40')));
+    + drawText(pageWidth - margin - 75, footerY + 4, `Page ${index + 1} of ${pages.length}`, 8, false, '0.40 0.40 0.40')));
 }
 
 function buildPdf(pageContents: string[]) {
   const objects: string[] = [];
-  const pageRefs = pageContents.map((_, index) => `${5 + index * 2} 0 R`).join(' ');
+  const pageRefs = pageContents.map((_, index) => `${6 + index * 2} 0 R`).join(' ');
   objects[0] = '<< /Type /Catalog /Pages 2 0 R >>'; objects[1] = `<< /Type /Pages /Kids [${pageRefs}] /Count ${pageContents.length} >>`;
   objects[2] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'; objects[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>';
-  pageContents.forEach((content, index) => { const pageObject = 5 + index * 2; const contentObject = pageObject + 1;
-    objects[pageObject - 1] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentObject} 0 R >>`;
+  objects[4] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique >>';
+  pageContents.forEach((content, index) => { const pageObject = 6 + index * 2; const contentObject = pageObject + 1;
+    objects[pageObject - 1] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents ${contentObject} 0 R >>`;
     objects[contentObject - 1] = `<< /Length ${Buffer.byteLength(content, 'latin1')} >>\nstream\n${content}\nendstream`; });
   let pdf = '%PDF-1.4\n'; const offsets = [0];
   objects.forEach((body, index) => { offsets[index + 1] = Buffer.byteLength(pdf, 'latin1'); pdf += `${index + 1} 0 obj\n${body}\nendobj\n`; });
@@ -180,9 +213,10 @@ function buildPdf(pageContents: string[]) {
   pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`; return Buffer.from(pdf, 'latin1');
 }
 
-function drawText(x: number, top: number, text: string, size: number, bold = false, color = '0.08 0.08 0.08') { return `BT /${bold ? 'F2' : 'F1'} ${size} Tf ${color} rg ${num(x)} ${num(pageHeight - top)} Td (${escapePdf(text)}) Tj ET\n`; }
+function drawText(x: number, top: number, text: string, size: number, bold = false, color = '0.08 0.08 0.08', font?: 'F1' | 'F2' | 'F3') { return `BT /${font || (bold ? 'F2' : 'F1')} ${size} Tf ${color} rg ${num(x)} ${num(pageHeight - top)} Td (${escapePdf(text)}) Tj ET\n`; }
 function drawCentered(text: string, top: number, size: number, bold = false) { return drawText(Math.max(margin, (pageWidth - sanitize(text).length * size * 0.52) / 2), top, text, size, bold); }
 function drawLine(x1: number, top1: number, x2: number, top2: number, color: string) { return `0.6 w ${color} RG ${num(x1)} ${num(pageHeight - top1)} m ${num(x2)} ${num(pageHeight - top2)} l S\n`; }
+function drawRect(x: number, top: number, width: number, height: number, fill: string) { return `${fill} rg ${num(x)} ${num(pageHeight - top - height)} ${num(width)} ${num(height)} re f\n`; }
 function wrapText(text: string, fontSize: number, width: number) { const maxChars = Math.max(20, Math.floor(width / (fontSize * 0.5))); const lines: string[] = []; let line = ''; sanitize(text).split(' ').forEach((word) => { const candidate = line ? `${line} ${word}` : word; if (candidate.length > maxChars && line) { lines.push(line); line = word; } else line = candidate; }); if (line) lines.push(line); return lines; }
 function value(input: unknown, fallback = '____________________________') { return sanitize(String(input || fallback)); }
 function money(input: number) { return Number(input || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
