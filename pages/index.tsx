@@ -1580,6 +1580,13 @@ function AttendancePanel({
             {sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
           </select>
         </label>
+        <a
+          className="soft-button"
+          href={`/api/reports/attendance?date=${date}&end_date=${dateSelectionMode === 'between' ? endDate : date}&site_id=${selectedAttendanceSite}`}
+        >
+          <Download size={16} />
+          Attendance PDF
+        </a>
         <button
           className="soft-button"
           type="button"
