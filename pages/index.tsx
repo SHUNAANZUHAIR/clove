@@ -1215,24 +1215,26 @@ function TeamGroup({
               <div className="row-actions">
                 {index === 0 && (
                   <button
-                    className="soft-button compact"
+                    className="soft-button compact mobile-icon-action"
                     title="Duplicate work details for a new employee"
+                    aria-label="Duplicate work details for a new employee"
                     type="button"
                     onClick={() => onDuplicate(employee)}
                   >
                     <Copy size={14} />
-                    Duplicate
+                    <span className="mobile-action-label">Duplicate</span>
                   </button>
                 )}
                 {employee.site_name?.toLowerCase().includes('clove cafe') && (
                   <button
-                    className="soft-button compact"
+                    className="soft-button compact mobile-icon-action"
                     title="Generate employment agreement"
+                    aria-label="Generate employment agreement"
                     type="button"
                     onClick={() => onAgreement(employee)}
                   >
                     <Download size={14} />
-                    Agreement
+                    <span className="mobile-action-label">Agreement</span>
                   </button>
                 )}
                 <button

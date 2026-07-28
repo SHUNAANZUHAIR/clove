@@ -1587,6 +1587,18 @@ button:disabled {
 
 
 @media (max-width: 760px) {
+  .mobile-action-label {
+    display: none;
+  }
+
+  .row-actions .mobile-icon-action {
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    padding: 0;
+    justify-content: center;
+  }
+
   .app-canvas {
     padding: 0;
   }
