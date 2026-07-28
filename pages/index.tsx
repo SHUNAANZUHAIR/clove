@@ -95,6 +95,7 @@ interface AttendanceRecord {
   employee_id: number;
   employee_name: string;
   id_number: string | null;
+  site_id: number | null;
   site_name: string | null;
   status: 'present' | 'absent' | 'leave' | 'off';
   notes: string;
@@ -397,13 +398,13 @@ export default function Home() {
     }
   };
 
-  const saveAttendance = async () => {
+  const saveAttendance = async (recordsToSave: AttendanceRecord[]) => {
     setAttendanceSaving(true);
     try {
       const res = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: attendanceDate, records: attendanceRecords }),
+        body: JSON.stringify({ date: attendanceDate, records: recordsToSave }),
       });
       if (!res.ok) throw new Error('Could not save attendance');
       await fetchAttendance(attendanceDate);
@@ -1026,6 +1027,7 @@ export default function Home() {
               <AttendancePanel
                 date={attendanceDate}
                 records={attendanceRecords}
+                sites={sites}
                 search={search}
                 loading={attendanceLoading}
                 saving={attendanceSaving}
@@ -1458,6 +1460,7 @@ function EmployeeForm({
 function AttendancePanel({
   date,
   records,
+  sites,
   search,
   loading,
   saving,
@@ -1467,20 +1470,25 @@ function AttendancePanel({
 }: {
   date: string;
   records: AttendanceRecord[];
+  sites: Site[];
   search: string;
   loading: boolean;
   saving: boolean;
   onDateChange: (date: string) => void;
   onChange: (records: AttendanceRecord[]) => void;
-  onSave: () => void;
+  onSave: (records: AttendanceRecord[]) => void;
 }) {
-  const visibleRecords = records.filter((record) => (
+  const [selectedAttendanceSite, setSelectedAttendanceSite] = useState('all');
+  const siteRecords = records.filter((record) => (
+    selectedAttendanceSite === 'all' || record.site_id?.toString() === selectedAttendanceSite
+  ));
+  const visibleRecords = siteRecords.filter((record) => (
     !search ||
     record.employee_name.toLowerCase().includes(search) ||
     record.id_number?.toLowerCase().includes(search) ||
     record.site_name?.toLowerCase().includes(search)
   ));
-  const counts = records.reduce((summary, record) => {
+  const counts = siteRecords.reduce((summary, record) => {
     summary[record.status] += 1;
     return summary;
   }, { present: 0, absent: 0, leave: 0, off: 0 });
@@ -1497,16 +1505,28 @@ function AttendancePanel({
           <span>Date</span>
           <input aria-label="Attendance date" type="date" value={date} onChange={(event) => onDateChange(event.target.value)} />
         </label>
+        <label className="filter-control">
+          <MapPin size={15} />
+          <span>Site</span>
+          <select aria-label="Attendance site" value={selectedAttendanceSite} onChange={(event) => setSelectedAttendanceSite(event.target.value)}>
+            <option value="all">All sites</option>
+            {sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
+          </select>
+        </label>
         <button
           className="soft-button"
           type="button"
-          onClick={() => onChange(records.map((record) => ({ ...record, status: 'present' })))}
-          disabled={loading || records.length === 0}
+          onClick={() => onChange(records.map((record) => (
+            selectedAttendanceSite === 'all' || record.site_id?.toString() === selectedAttendanceSite
+              ? { ...record, status: 'present' }
+              : record
+          )))}
+          disabled={loading || siteRecords.length === 0}
         >
           <Check size={16} />
           Mark all present
         </button>
-        <button className="dark-button" type="button" onClick={onSave} disabled={loading || saving || records.length === 0}>
+        <button className="dark-button" type="button" onClick={() => onSave(siteRecords)} disabled={loading || saving || siteRecords.length === 0}>
           <Save size={16} />
           {saving ? 'Saving...' : 'Save attendance'}
         </button>

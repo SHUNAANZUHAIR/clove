@@ -16,6 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           e.id AS employee_id,
           e.name AS employee_name,
           e.id_number,
+          e.site_id,
           s.name AS site_name,
           COALESCE(a.status, 'present') AS status,
           COALESCE(a.notes, '') AS notes,
