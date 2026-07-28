@@ -19,8 +19,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           e.site_id,
           s.name AS site_name,
           COALESCE(a.status, 'present') AS status,
-          to_char(a.in_time, 'HH24:MI') AS in_time,
-          to_char(a.out_time, 'HH24:MI') AS out_time,
+          COALESCE(to_char(a.in_time, 'HH24:MI'), '09:00') AS in_time,
+          COALESCE(to_char(a.out_time, 'HH24:MI'), '17:00') AS out_time,
           COALESCE(a.notes, '') AS notes,
           a.id
         FROM employees e
