@@ -11,6 +11,12 @@ interface AgreementEmployee {
   benefit_details: string | null; notice_period: string | null; employer_signatory: string | null;
 }
 
+interface AgreementSection {
+  heading?: string;
+  text?: string;
+  details?: Array<[string, string]>;
+}
+
 const employer = 'CLOVE CAFE & BISTRO (ST00060328)';
 const employerAddress = 'SUNNY BEEM, ORCHID MAGU, S. Maradhoo, Maldives';
 const pageWidth = 595;
@@ -54,7 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-function createAgreementPdf(employee: AgreementEmployee) {
+export function createAgreementPdf(employee: AgreementEmployee) {
   const title = value(employee.job_title || jobLevelLabel(employee.job_level));
   const description = value(employee.job_description || defaultDescriptions[employee.job_title || ''], 'Duties will be assigned according to the employee position.');
   const employmentTerm = employee.employment_status === 'fixed_term' ? `[X] Fixed-term ending on ${value(employee.fixed_term_end)}` : '[X] Indefinite/permanent';
@@ -66,9 +72,21 @@ function createAgreementPdf(employee: AgreementEmployee) {
     `[X] Local transport ${employee.transport_provided ? 'provided' : 'not provided'}`,
     `[X] Return airfare/repatriation ${employee.return_airfare_provided ? 'provided' : 'not provided'}`,
   ].join('; ');
-  const sections: Array<{ heading?: string; text: string }> = [
+  const sections: AgreementSection[] = [
     { text: `This Employment Agreement is made between ${employer}, of ${employerAddress} (the Employer), and ${value(employee.name)}, passport no. ${value(employee.id_number)}, work permit no. ${value(employee.work_permit_number)} (the Employee).` },
-    { heading: 'EMPLOYEE DETAILS', text: `Employee name: ${value(employee.name)}\nPassport number: ${value(employee.id_number)}\nWork permit number: ${value(employee.work_permit_number)}\nNationality: ${value(employee.nationality)}\nCurrent address: ${value(employee.current_address)}\nJob title: ${title}\nPlace of employment: ${employee.site_name || employer}, ${employerAddress}\nCommencement date: ${value(employee.join_date)}` },
+    {
+      heading: 'EMPLOYEE DETAILS',
+      details: [
+        ['Employee name', value(employee.name)],
+        ['Passport number', value(employee.id_number)],
+        ['Work permit number', value(employee.work_permit_number)],
+        ['Nationality', value(employee.nationality)],
+        ['Current address', value(employee.current_address)],
+        ['Job title', title],
+        ['Place of employment', `${employee.site_name || employer}, ${employerAddress}`],
+        ['Commencement date', value(employee.join_date)],
+      ],
+    },
     { heading: '1. APPOINTMENT AND DUTIES', text: `The Employer appoints the Employee as ${title}.\n\nShort job description: ${description}\n\nThe Employee shall comply with lawful and reasonable instructions, maintain hygiene and food-safety standards, protect the Employer's property and reputation, and carry out related duties reasonably assigned by the Employer.` },
     { heading: '2. EMPLOYMENT STATUS AND TERM', text: `${employmentTerm}. Any fixed term and renewal shall comply with the Employment Act of the Maldives. Continuous service commences on the date stated above.` },
     { heading: '3. PROBATION', text: `${probation}, not exceeding the maximum period permitted by Maldivian law.` },
@@ -86,7 +104,7 @@ function createAgreementPdf(employee: AgreementEmployee) {
   return renderDocument(sections);
 }
 
-function renderDocument(sections: Array<{ heading?: string; text: string }>) {
+function renderDocument(sections: AgreementSection[]) {
   const pages: string[] = [];
   let content = '';
   let y = 44;
@@ -107,10 +125,40 @@ function renderDocument(sections: Array<{ heading?: string; text: string }>) {
     }
     y += gapAfter;
   };
+  const addDetailsTable = (rows: Array<[string, string]>) => {
+    const labelWidth = 132;
+    const fontSize = 9;
+    const lineHeight = 12;
+    const padding = 6;
+    const preparedRows = rows.map(([label, detail]) => ({
+      label: wrapText(label, fontSize, labelWidth - padding * 2),
+      detail: wrapText(detail, fontSize, contentWidth - labelWidth - padding * 2),
+    }));
+    const rowHeights = preparedRows.map((row) => Math.max(row.label.length, row.detail.length) * lineHeight + padding * 2);
+    const tableHeight = rowHeights.reduce((sum, height) => sum + height, 0);
+    ensureSpace(tableHeight + 10);
+    const tableTop = y;
+    let rowTop = tableTop;
+    preparedRows.forEach((row, index) => {
+      row.label.forEach((line, lineIndex) => { content += drawText(margin + padding, rowTop + padding + fontSize + lineIndex * lineHeight, line, fontSize, true); });
+      row.detail.forEach((line, lineIndex) => { content += drawText(margin + labelWidth + padding, rowTop + padding + fontSize + lineIndex * lineHeight, line, fontSize); });
+      rowTop += rowHeights[index];
+      content += drawLine(margin, rowTop, pageWidth - margin, rowTop, '0.72 0.72 0.72');
+    });
+    content += drawLine(margin, tableTop, pageWidth - margin, tableTop, '0.72 0.72 0.72');
+    content += drawLine(margin, tableTop, margin, rowTop, '0.72 0.72 0.72');
+    content += drawLine(margin + labelWidth, tableTop, margin + labelWidth, rowTop, '0.72 0.72 0.72');
+    content += drawLine(pageWidth - margin, tableTop, pageWidth - margin, rowTop, '0.72 0.72 0.72');
+    y = rowTop + 12;
+  };
   newPage();
   content += drawCentered('EMPLOYMENT AGREEMENT', 82, 17, true);
   y = 108;
-  sections.forEach((section) => { if (section.heading) { ensureSpace(34); addWrapped(section.heading, 10.5, true, 4); } addWrapped(section.text, 9.5, false, 10); });
+  sections.forEach((section) => {
+    if (section.heading) { ensureSpace(34); addWrapped(section.heading, 10.5, true, 4); }
+    if (section.details) addDetailsTable(section.details);
+    if (section.text) addWrapped(section.text, 9.5, false, 10);
+  });
   pages.push(content);
   return buildPdf(pages.map((page, index) => page + drawLine(margin, footerY - 10, pageWidth - margin, footerY - 10, '0.84 0.84 0.84')
     + drawText(margin, footerY + 4, 'Clove Cafe & Bistro - Employment Agreement', 8, false, '0.40 0.40 0.40')
