@@ -998,6 +998,14 @@ export default function Home() {
                                 </td>
                                 <td>
                                   <div className="row-actions">
+                                    <a
+                                      className="icon-button small"
+                                      title="Download employee salary slip PDF"
+                                      aria-label={`Download salary slip for ${transaction.employee_name}`}
+                                      href={`/api/reports/salary-slip?transaction_id=${transaction.id}`}
+                                    >
+                                      <Download size={15} />
+                                    </a>
                                     <button
                                       className="icon-button small"
                                       title="View payroll details"
