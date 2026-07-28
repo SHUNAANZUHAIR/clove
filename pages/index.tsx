@@ -118,6 +118,18 @@ const jobLevels: Array<{ value: JobLevel; label: string }> = [
   { value: 'supervisor', label: 'Supervisor' },
 ];
 
+const agreementNationalities = ['Bangladeshi', 'Indian', 'Nepali', 'Sri Lankan'];
+const agreementJobTitles = [
+  'Waiter',
+  'Assistant, kitchen',
+  'Steward, kitchen',
+  'Cook',
+  'Washer, hand: dishes',
+  'Maker, pastry',
+  'Cleaner, restaurant',
+  'Hand, kitchen',
+];
+
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const maxProfilePhotoBytes = 5 * 1024 * 1024;
 const profilePhotoMaxSize = 512;
@@ -1328,7 +1340,13 @@ function EmployeeForm({
               <>
             <label>
               <span>Job title on agreement</span>
-              <input value={form.job_title} onChange={(event) => onChange({ ...form, job_title: event.target.value })} placeholder="Waiter" />
+              <select value={form.job_title} onChange={(event) => onChange({ ...form, job_title: event.target.value })}>
+                <option value="">Select job title</option>
+                {form.job_title && !agreementJobTitles.includes(form.job_title) && (
+                  <option value={form.job_title}>{form.job_title}</option>
+                )}
+                {agreementJobTitles.map((jobTitle) => <option key={jobTitle} value={jobTitle}>{jobTitle}</option>)}
+              </select>
             </label>
             <label>
               <span>Work permit number</span>
@@ -1336,7 +1354,13 @@ function EmployeeForm({
             </label>
             <label>
               <span>Nationality</span>
-              <input value={form.nationality} onChange={(event) => onChange({ ...form, nationality: event.target.value })} />
+              <select value={form.nationality} onChange={(event) => onChange({ ...form, nationality: event.target.value })}>
+                <option value="">Select nationality</option>
+                {form.nationality && !agreementNationalities.includes(form.nationality) && (
+                  <option value={form.nationality}>{form.nationality}</option>
+                )}
+                {agreementNationalities.map((nationality) => <option key={nationality} value={nationality}>{nationality}</option>)}
+              </select>
             </label>
             <label>
               <span>Permanent / current address</span>
