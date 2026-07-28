@@ -10,6 +10,7 @@ import {
   CircleDollarSign,
   Clock3,
   CreditCard,
+  Copy,
   Download,
   MapPin,
   MoreHorizontal,
@@ -132,9 +133,9 @@ function printEmploymentAgreement(employee: Employee) {
   const agreement = `<!doctype html><html><head><meta charset="utf-8"><title>Employment Agreement - ${value(employee.name)}</title>
   <style>body{font:12px/1.45 Arial,sans-serif;color:#111;max-width:820px;margin:28px auto;padding:0 28px}h1{text-align:center;font-size:20px;margin:14px 0}h2{font-size:14px;margin:18px 0 6px}header{text-align:center;font-weight:700}.details{width:100%;border-collapse:collapse;margin:14px 0}.details td{border:1px solid #bbb;padding:6px}.details td:first-child{font-weight:700;width:32%}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:34px}.line{margin-top:20px;border-bottom:1px solid #111}@media print{body{margin:0;max-width:none}.no-print{display:none}}</style></head><body>
   <button class="no-print" onclick="window.print()">Print / Save as PDF</button><header>${cloveCafeEmployer}<br>${cloveCafeAddress}</header><h1>EMPLOYMENT AGREEMENT</h1>
-  <p>This Employment Agreement is made between ${cloveCafeEmployer}, of ${cloveCafeAddress} (the ?Employer?), and <strong>${value(employee.name)}</strong>, passport no. <strong>${value(employee.id_number)}</strong>, work permit no. <strong>${value(employee.work_permit_number)}</strong> (the ?Employee?).</p>
+  <p>This Employment Agreement is made between ${cloveCafeEmployer}, of ${cloveCafeAddress} (the “Employer”), and <strong>${value(employee.name)}</strong>, passport no. <strong>${value(employee.id_number)}</strong>, work permit no. <strong>${value(employee.work_permit_number)}</strong> (the “Employee”).</p>
   <table class="details"><tr><td>Employee name</td><td>${value(employee.name)}</td></tr><tr><td>Passport number</td><td>${value(employee.id_number)}</td></tr><tr><td>Work permit number</td><td>${value(employee.work_permit_number)}</td></tr><tr><td>Job title</td><td>${title}</td></tr><tr><td>Place of employment</td><td>${cloveCafeEmployer}, ${cloveCafeAddress}</td></tr><tr><td>Employment commencement date</td><td>${value(employee.join_date)}</td></tr><tr><td>Employee nationality</td><td>${value(employee.nationality)}</td></tr><tr><td>Permanent / current address</td><td>${value(employee.current_address, '____________________________________________________________')}</td></tr></table>
-  <h2>1. Appointment and duties</h2><p>The Employer appoints the Employee as ${title}. The Employee shall perform the duties normally associated with this position, comply with lawful and reasonable instructions, maintain hygiene and food-safety standards, protect the Employer?s property and reputation, and carry out related duties reasonably assigned by the Employer. A separate written job description may be issued and shall form part of this Agreement.</p>
+  <h2>1. Appointment and duties</h2><p>The Employer appoints the Employee as ${title}. The Employee shall perform the duties normally associated with this position, comply with lawful and reasonable instructions, maintain hygiene and food-safety standards, protect the Employer’s property and reputation, and carry out related duties reasonably assigned by the Employer. A separate written job description may be issued and shall form part of this Agreement.</p>
   <h2>2. Employment status and term</h2><p>The employment is: ${checked(employmentStatus === 'indefinite')} indefinite/permanent &nbsp; ${checked(employmentStatus === 'fixed_term')} fixed-term ending on ${value(employee.fixed_term_end)}. Any fixed term and renewal shall comply with the Employment Act of the Maldives. Continuous service commences on the date stated above.</p>
   <h2>3. Probation</h2><p>Probation: ${checked(!employee.probation_applicable)} not applicable &nbsp; ${checked(employee.probation_applicable)} applicable for ${value(employee.probation_months)} month(s), not exceeding the maximum period permitted by Maldivian law.</p>
   <h2>4. Working hours, roster and breaks</h2><p>Normal working hours shall be ${value(employee.hours_per_day)} hours per day and ${value(employee.hours_per_week)} hours per week, according to a roster issued by the Employer. Statutory meal/rest breaks and weekly rest apply.</p>
@@ -187,6 +188,40 @@ const emptyProfileForm = {
   notice_period: '',
   employer_signatory: '',
 };
+
+function employeeToProfileForm(employee: Employee, duplicate = false): typeof emptyProfileForm {
+  return {
+    id: duplicate ? 0 : employee.id,
+    name: duplicate ? '' : employee.name,
+    salary: employee.salary.toString(),
+    id_number: duplicate ? '' : employee.id_number,
+    birth_date: duplicate ? '' : employee.birth_date || '',
+    join_date: duplicate ? '' : employee.join_date || '',
+    photo: duplicate ? '' : employee.photo || '',
+    medium: employee.medium || 'cash',
+    employee_type: employee.employee_type || 'local',
+    job_level: employee.job_level || 'labour',
+    site_id: employee.site_id?.toString() || '',
+    work_permit_number: duplicate ? '' : employee.work_permit_number || '',
+    nationality: duplicate ? '' : employee.nationality || '',
+    current_address: duplicate ? '' : employee.current_address || '',
+    job_title: employee.job_title || '',
+    employment_status: employee.employment_status || 'indefinite',
+    fixed_term_end: employee.fixed_term_end || '',
+    probation_applicable: Boolean(employee.probation_applicable),
+    probation_months: employee.probation_months?.toString() || '',
+    hours_per_day: employee.hours_per_day?.toString() || '8',
+    hours_per_week: employee.hours_per_week?.toString() || '48',
+    allowances_benefits: employee.allowances_benefits || '',
+    accommodation_provided: Boolean(employee.accommodation_provided),
+    meals_provided: Boolean(employee.meals_provided),
+    transport_provided: Boolean(employee.transport_provided),
+    return_airfare_provided: Boolean(employee.return_airfare_provided),
+    benefit_details: employee.benefit_details || '',
+    notice_period: employee.notice_period || '',
+    employer_signatory: employee.employer_signatory || '',
+  };
+}
 
 const freshSalaryForm = () => ({
   scope: 'employee' as SalaryScope,
@@ -704,34 +739,11 @@ export default function Home() {
                           ...current,
                           [group.value]: !current[group.value],
                         }))}
-                        onEdit={(employee) => setProfileForm({
-                          ...employee,
-                          salary: employee.salary.toString(),
-                          photo: employee.photo || '',
-                          employee_type: employee.employee_type || 'local',
-                          job_level: employee.job_level || 'labour',
-                          site_id: employee.site_id?.toString() || '',
-                          birth_date: employee.birth_date || '',
-                          join_date: employee.join_date || '',
-                          work_permit_number: employee.work_permit_number || '',
-                          nationality: employee.nationality || '',
-                          current_address: employee.current_address || '',
-                          job_title: employee.job_title || '',
-                          employment_status: employee.employment_status || 'indefinite',
-                          fixed_term_end: employee.fixed_term_end || '',
-                          probation_applicable: Boolean(employee.probation_applicable),
-                          probation_months: employee.probation_months?.toString() || '',
-                          hours_per_day: employee.hours_per_day?.toString() || '8',
-                          hours_per_week: employee.hours_per_week?.toString() || '48',
-                          allowances_benefits: employee.allowances_benefits || '',
-                          accommodation_provided: Boolean(employee.accommodation_provided),
-                          meals_provided: Boolean(employee.meals_provided),
-                          transport_provided: Boolean(employee.transport_provided),
-                          return_airfare_provided: Boolean(employee.return_airfare_provided),
-                          benefit_details: employee.benefit_details || '',
-                          notice_period: employee.notice_period || '',
-                          employer_signatory: employee.employer_signatory || '',
-                        })}
+                        onEdit={(employee) => setProfileForm(employeeToProfileForm(employee))}
+                        onDuplicate={(employee) => {
+                          setProfileForm(employeeToProfileForm(employee, true));
+                          requestAnimationFrame(() => document.getElementById('employee-onboarding')?.scrollIntoView({ behavior: 'smooth' }));
+                        }}
                         onDelete={handleDeleteEmployee}
                         onAgreement={printEmploymentAgreement}
                       />
@@ -1032,6 +1044,7 @@ function TeamGroup({
   expanded,
   onToggle,
   onEdit,
+  onDuplicate,
   onDelete,
   onAgreement,
 }: {
@@ -1040,6 +1053,7 @@ function TeamGroup({
   expanded: boolean;
   onToggle: () => void;
   onEdit: (employee: Employee) => void;
+  onDuplicate: (employee: Employee) => void;
   onDelete: (id: number) => void;
   onAgreement: (employee: Employee) => void;
 }) {
@@ -1063,7 +1077,7 @@ function TeamGroup({
         {employees.length === 0 ? (
           <div className="empty-state compact">No employees</div>
         ) : (
-          visibleEmployees.map((employee) => (
+          visibleEmployees.map((employee, index) => (
             <article className="person-card" key={employee.id}>
               <Avatar employee={employee} />
               <div className="card-main">
@@ -1076,6 +1090,17 @@ function TeamGroup({
                 </small>
               </div>
               <div className="row-actions">
+                {index === 0 && (
+                  <button
+                    className="soft-button compact"
+                    title="Duplicate work details for a new employee"
+                    type="button"
+                    onClick={() => onDuplicate(employee)}
+                  >
+                    <Copy size={14} />
+                    Duplicate
+                  </button>
+                )}
                 {employee.site_name?.toLowerCase().includes('clove cafe') && (
                   <button
                     className="soft-button compact"
@@ -1133,7 +1158,7 @@ function EmployeeForm({
   const isCloveCafeEmployee = selectedWorkSite?.name.toLowerCase().includes('clove cafe') ?? false;
 
   return (
-    <section className="form-panel">
+    <section className="form-panel" id="employee-onboarding">
       <SectionHeader title={form.id ? 'Edit employee' : 'Add employee'} />
       <form onSubmit={onSubmit}>
         <fieldset className="form-lock-fieldset">
