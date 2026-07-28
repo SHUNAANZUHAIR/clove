@@ -410,7 +410,12 @@ export default function Home() {
     try {
       const res = await fetch(`/api/attendance?date=${date}`);
       if (!res.ok) throw new Error('Could not load attendance');
-      setAttendanceRecords(await res.json());
+      const records = await res.json() as AttendanceRecord[];
+      setAttendanceRecords(records.map((record) => ({
+        ...record,
+        in_time: record.in_time || '09:00',
+        out_time: record.out_time || '17:00',
+      })));
     } catch (error) {
       console.error(error);
       setAttendanceRecords([]);
