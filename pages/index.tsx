@@ -299,6 +299,7 @@ export default function Home() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().slice(0, 10));
+  const [attendanceEndDate, setAttendanceEndDate] = useState(new Date().toISOString().slice(0, 10));
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [attendanceSaving, setAttendanceSaving] = useState(false);
@@ -398,17 +399,26 @@ export default function Home() {
     }
   };
 
-  const saveAttendance = async (recordsToSave: AttendanceRecord[]) => {
+  const saveAttendance = async (recordsToSave: AttendanceRecord[], endDate?: string) => {
     setAttendanceSaving(true);
     try {
+      const dates = getAttendanceDateRange(attendanceDate, endDate || attendanceDate);
+      if (dates.length === 0) {
+        alert('Select a valid date range. The end date must be on or after the start date.');
+        return;
+      }
+      if (dates.length > 31) {
+        alert('Please select a date range of 31 days or less.');
+        return;
+      }
       const res = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: attendanceDate, records: recordsToSave }),
+        body: JSON.stringify({ dates, records: recordsToSave }),
       });
       if (!res.ok) throw new Error('Could not save attendance');
       await fetchAttendance(attendanceDate);
-      alert('Attendance saved.');
+      alert(dates.length === 1 ? 'Attendance saved.' : `Attendance saved for ${dates.length} days.`);
     } catch (error) {
       console.error(error);
       alert('Attendance could not be saved. Please try again.');
@@ -1026,12 +1036,17 @@ export default function Home() {
             {activeTab === 'attendance' && (
               <AttendancePanel
                 date={attendanceDate}
+                endDate={attendanceEndDate}
                 records={attendanceRecords}
                 sites={sites}
                 search={search}
                 loading={attendanceLoading}
                 saving={attendanceSaving}
-                onDateChange={setAttendanceDate}
+                onDateChange={(date) => {
+                  setAttendanceDate(date);
+                  if (attendanceEndDate < date) setAttendanceEndDate(date);
+                }}
+                onEndDateChange={setAttendanceEndDate}
                 onChange={setAttendanceRecords}
                 onSave={saveAttendance}
               />
@@ -1461,26 +1476,31 @@ function EmployeeForm({
 
 function AttendancePanel({
   date,
+  endDate,
   records,
   sites,
   search,
   loading,
   saving,
   onDateChange,
+  onEndDateChange,
   onChange,
   onSave,
 }: {
   date: string;
+  endDate: string;
   records: AttendanceRecord[];
   sites: Site[];
   search: string;
   loading: boolean;
   saving: boolean;
   onDateChange: (date: string) => void;
+  onEndDateChange: (date: string) => void;
   onChange: (records: AttendanceRecord[]) => void;
-  onSave: (records: AttendanceRecord[]) => void;
+  onSave: (records: AttendanceRecord[], endDate?: string) => void;
 }) {
   const [selectedAttendanceSite, setSelectedAttendanceSite] = useState('all');
+  const [dateSelectionMode, setDateSelectionMode] = useState<'single' | 'between'>('single');
   const siteRecords = records.filter((record) => (
     selectedAttendanceSite === 'all' || record.site_id?.toString() === selectedAttendanceSite
   ));
@@ -1504,9 +1524,24 @@ function AttendancePanel({
       <div className="attendance-toolbar">
         <label className="filter-control">
           <CalendarDays size={15} />
-          <span>Date</span>
+          <span>Date selection</span>
+          <select aria-label="Attendance date selection" value={dateSelectionMode} onChange={(event) => setDateSelectionMode(event.target.value as 'single' | 'between')}>
+            <option value="single">Single date</option>
+            <option value="between">Between dates</option>
+          </select>
+        </label>
+        <label className="filter-control">
+          <CalendarDays size={15} />
+          <span>{dateSelectionMode === 'between' ? 'From' : 'Date'}</span>
           <input aria-label="Attendance date" type="date" value={date} onChange={(event) => onDateChange(event.target.value)} />
         </label>
+        {dateSelectionMode === 'between' && (
+          <label className="filter-control">
+            <CalendarDays size={15} />
+            <span>To</span>
+            <input aria-label="Attendance end date" type="date" min={date} value={endDate} onChange={(event) => onEndDateChange(event.target.value)} />
+          </label>
+        )}
         <label className="filter-control">
           <MapPin size={15} />
           <span>Site</span>
@@ -1528,7 +1563,7 @@ function AttendancePanel({
           <Check size={16} />
           Mark all present
         </button>
-        <button className="dark-button" type="button" onClick={() => onSave(siteRecords)} disabled={loading || saving || siteRecords.length === 0}>
+        <button className="dark-button" type="button" onClick={() => onSave(siteRecords, dateSelectionMode === 'between' ? endDate : date)} disabled={loading || saving || siteRecords.length === 0}>
           <Save size={16} />
           {saving ? 'Saving...' : 'Save attendance'}
         </button>
@@ -1912,6 +1947,18 @@ function formatCurrency(value: number) {
   }).format(Number(value || 0));
 
   return `MVR ${amount}`;
+}
+
+function getAttendanceDateRange(startDate: string, endDate: string) {
+  const start = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return [];
+
+  const dates: string[] = [];
+  for (let current = new Date(start); current <= end && dates.length <= 31; current.setUTCDate(current.getUTCDate() + 1)) {
+    dates.push(current.toISOString().slice(0, 10));
+  }
+  return dates;
 }
 
 function formatDate(value?: string | null) {

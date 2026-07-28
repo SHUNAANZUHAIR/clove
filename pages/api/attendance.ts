@@ -31,24 +31,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === 'POST') {
       const date = normalizeDate(req.body.date);
+      const dates = Array.from(new Set<string>(
+        (Array.isArray(req.body.dates) ? req.body.dates : [date])
+          .map((candidate: unknown) => normalizeDate(candidate))
+          .filter((candidate: string) => Boolean(candidate))
+      ));
       const records = Array.isArray(req.body.records) ? req.body.records : [];
-      if (!date) return res.status(400).json({ error: 'A valid attendance date is required' });
+      if (dates.length === 0) return res.status(400).json({ error: 'A valid attendance date is required' });
+      if (dates.length > 31) return res.status(400).json({ error: 'Attendance ranges are limited to 31 days' });
       if (records.length === 0) return res.status(400).json({ error: 'No attendance records supplied' });
 
-      let saved = 0;
+      const rows: Array<[number, string, string, string]> = [];
       for (const record of records) {
         const employeeId = Number(record.employee_id);
         const status = String(record.status || '').toLowerCase();
         if (!Number.isInteger(employeeId) || employeeId <= 0 || !allowedStatuses.has(status)) continue;
-        await query(`
-          INSERT INTO attendance (employee_id, attendance_date, status, notes)
-          VALUES ($1, $2, $3, $4)
-          ON CONFLICT (employee_id, attendance_date)
-          DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes, updated_at = CURRENT_TIMESTAMP
-        `, [employeeId, date, status, String(record.notes || '').slice(0, 500)]);
-        saved += 1;
+        for (const attendanceDate of dates) {
+          rows.push([employeeId, attendanceDate, status, String(record.notes || '').slice(0, 500)]);
+        }
       }
-      return res.status(200).json({ success: true, saved });
+      if (rows.length === 0) return res.status(400).json({ error: 'No valid attendance records supplied' });
+
+      const params = rows.flat();
+      const placeholders = rows.map((_, index) => {
+        const offset = index * 4;
+        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`;
+      }).join(', ');
+      await query(`
+        INSERT INTO attendance (employee_id, attendance_date, status, notes)
+        VALUES ${placeholders}
+        ON CONFLICT (employee_id, attendance_date)
+        DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes, updated_at = CURRENT_TIMESTAMP
+      `, params);
+      return res.status(200).json({ success: true, saved: rows.length, dates: dates.length });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
