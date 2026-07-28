@@ -137,23 +137,46 @@ const escapeAgreementValue = (value: unknown) => String(value ?? '')
   .replace(/'/g, '&#039;');
 
 function printEmploymentAgreement(employee: Employee) {
-  const checked = (value?: boolean) => (value ? '&#9745;' : '&#9744;');
   const value = (input: unknown, fallback = '____________________________') => escapeAgreementValue(input || fallback);
   const title = value(employee.job_title || jobLevelLabel(employee.job_level));
   const employmentStatus = employee.employment_status || 'indefinite';
+  const selected = (label: string) => `&#9745; ${label}`;
+  const employmentTerm = employmentStatus === 'fixed_term'
+    ? selected(`Fixed-term ending on ${value(employee.fixed_term_end)}`)
+    : selected('Indefinite/permanent');
+  const probationTerm = employee.probation_applicable
+    ? selected(`Probation applicable for ${value(employee.probation_months)} month(s)`)
+    : selected('Probation not applicable');
+  const paymentMethod = employee.medium === 'account transfer'
+    ? selected('Bank transfer')
+    : employee.medium === 'cash'
+      ? selected('Cash')
+      : selected(value(employee.medium, 'Other'));
+  const benefitSelection = [
+    selected(employee.accommodation_provided ? 'Accommodation provided' : 'Accommodation not provided'),
+    selected(employee.meals_provided ? 'Meals provided' : 'Meals not provided'),
+    selected(employee.transport_provided ? 'Local transport provided' : 'Local transport not provided'),
+    selected(employee.return_airfare_provided ? 'Return airfare/repatriation provided' : 'Return airfare/repatriation not provided'),
+  ].join('; ');
+  const allowancesText = employee.allowances_benefits
+    ? ` Allowances/benefits: ${value(employee.allowances_benefits)}.`
+    : '';
+  const benefitDetailsText = employee.benefit_details
+    ? ` Details: ${value(employee.benefit_details)}.`
+    : '';
   const agreement = `<!doctype html><html><head><meta charset="utf-8"><title>Employment Agreement - ${value(employee.name)}</title>
   <style>body{font:12px/1.45 Arial,sans-serif;color:#111;max-width:820px;margin:28px auto;padding:0 28px}h1{text-align:center;font-size:20px;margin:14px 0}h2{font-size:14px;margin:18px 0 6px}header{text-align:center;font-weight:700}.details{width:100%;border-collapse:collapse;margin:14px 0}.details td{border:1px solid #bbb;padding:6px}.details td:first-child{font-weight:700;width:32%}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:34px}.line{margin-top:20px;border-bottom:1px solid #111}@media print{body{margin:0;max-width:none}.no-print{display:none}}</style></head><body>
   <button class="no-print" onclick="window.print()">Print / Save as PDF</button><header>${cloveCafeEmployer}<br>${cloveCafeAddress}</header><h1>EMPLOYMENT AGREEMENT</h1>
   <p>This Employment Agreement is made between ${cloveCafeEmployer}, of ${cloveCafeAddress} (the “Employer”), and <strong>${value(employee.name)}</strong>, passport no. <strong>${value(employee.id_number)}</strong>, work permit no. <strong>${value(employee.work_permit_number)}</strong> (the “Employee”).</p>
   <table class="details"><tr><td>Employee name</td><td>${value(employee.name)}</td></tr><tr><td>Passport number</td><td>${value(employee.id_number)}</td></tr><tr><td>Work permit number</td><td>${value(employee.work_permit_number)}</td></tr><tr><td>Job title</td><td>${title}</td></tr><tr><td>Place of employment</td><td>${cloveCafeEmployer}, ${cloveCafeAddress}</td></tr><tr><td>Employment commencement date</td><td>${value(employee.join_date)}</td></tr><tr><td>Employee nationality</td><td>${value(employee.nationality)}</td></tr><tr><td>Permanent / current address</td><td>${value(employee.current_address, '____________________________________________________________')}</td></tr></table>
   <h2>1. Appointment and duties</h2><p>The Employer appoints the Employee as ${title}. The Employee shall perform the duties normally associated with this position, comply with lawful and reasonable instructions, maintain hygiene and food-safety standards, protect the Employer’s property and reputation, and carry out related duties reasonably assigned by the Employer. A separate written job description may be issued and shall form part of this Agreement.</p>
-  <h2>2. Employment status and term</h2><p>The employment is: ${checked(employmentStatus === 'indefinite')} indefinite/permanent &nbsp; ${checked(employmentStatus === 'fixed_term')} fixed-term ending on ${value(employee.fixed_term_end)}. Any fixed term and renewal shall comply with the Employment Act of the Maldives. Continuous service commences on the date stated above.</p>
-  <h2>3. Probation</h2><p>Probation: ${checked(!employee.probation_applicable)} not applicable &nbsp; ${checked(employee.probation_applicable)} applicable for ${value(employee.probation_months)} month(s), not exceeding the maximum period permitted by Maldivian law.</p>
+  <h2>2. Employment status and term</h2><p>${employmentTerm}. Any fixed term and renewal shall comply with the Employment Act of the Maldives. Continuous service commences on the date stated above.</p>
+  <h2>3. Probation</h2><p>${probationTerm}, not exceeding the maximum period permitted by Maldivian law.</p>
   <h2>4. Working hours, roster and breaks</h2><p>Normal working hours shall be ${value(employee.hours_per_day)} hours per day and ${value(employee.hours_per_week)} hours per week, according to a roster issued by the Employer. Statutory meal/rest breaks and weekly rest apply.</p>
-  <h2>5. Salary and payment</h2><p>Basic salary: MVR ${value(employee.salary)} per month. Allowances/benefits: ${value(employee.allowances_benefits)}. Salary shall be paid monthly by ${checked(employee.medium === 'account transfer')} bank transfer ${checked(employee.medium === 'cash')} cash ${checked(!['account transfer','cash'].includes(employee.medium))} other: ${!['account transfer','cash'].includes(employee.medium) ? value(employee.medium) : '__________'}.</p>
+  <h2>5. Salary and payment</h2><p>Basic salary: MVR ${value(employee.salary)} per month.${allowancesText} Salary shall be paid monthly by ${paymentMethod}.</p>
   <h2>6. Overtime and work on rest days/public holidays</h2><p>Overtime must be authorized in advance and shall be recorded and compensated at not less than the rate required by the Employment Act. Work on weekly rest days and public holidays shall be compensated or replaced with leave as required by law.</p>
   <h2>7. Leave</h2><p>The Employee is entitled to statutory annual, sick, family responsibility, maternity/paternity and public-holiday leave under the Employment Act and amendments in force.</p>
-  <h2>8. Accommodation, meals, transport and permits</h2><p>Accommodation ${checked(employee.accommodation_provided)} yes ${checked(!employee.accommodation_provided)} no; meals ${checked(employee.meals_provided)} yes ${checked(!employee.meals_provided)} no; local transport ${checked(employee.transport_provided)} yes ${checked(!employee.transport_provided)} no; return airfare/repatriation ${checked(employee.return_airfare_provided)} yes ${checked(!employee.return_airfare_provided)} no. Details: ${value(employee.benefit_details)}.</p>
+  <h2>8. Accommodation, meals, transport and permits</h2><p>${benefitSelection}.${benefitDetailsText}</p>
   <h2>9. Conduct, safety and confidentiality</h2><p>The Employee shall follow workplace rules, safety instructions, anti-harassment requirements, cash-control procedures, customer-service standards and food hygiene rules. Confidential business and personnel information shall not be disclosed except as required for work or by law.</p>
   <h2>10. Discipline and grievances</h2><p>Disciplinary action shall be based on reasonable cause and fair procedure. The Employee may raise a grievance without retaliation and may use any statutory complaint or tribunal process.</p>
   <h2>11. Termination and notice</h2><p>After probation, either party may terminate this Agreement by written notice, or payment in lieu where lawful, using at least the statutory notice period or any longer period written here: ${value(employee.notice_period)}.</p>
