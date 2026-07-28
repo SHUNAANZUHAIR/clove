@@ -808,7 +808,21 @@ export default function Home() {
 	                    </label>
 	                  </div>
 
-                  <SectionHeader title="Payroll table" action={`${selectedSalaryIds.length} selected`} />
+                  <SectionHeader
+                    title="Payroll table"
+                    action={(
+                      <span className="section-actions">
+                        <span>{selectedSalaryIds.length} selected</span>
+                        <a
+                          className="soft-button compact"
+                          href={`/api/reports/salaries?month=${salaryFilter.month}&status=${salaryFilter.status}`}
+                        >
+                          <Download size={15} />
+                          Salary PDF
+                        </a>
+                      </span>
+                    )}
+                  />
                   <div className="table-shell">
                     <table className="salary-table">
                       <thead>
