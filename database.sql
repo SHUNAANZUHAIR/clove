@@ -36,6 +36,7 @@ ALTER TABLE employees ADD COLUMN IF NOT EXISTS work_permit_number TEXT;
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS nationality TEXT;
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS current_address TEXT;
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS job_title TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS job_description TEXT;
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS employment_status TEXT NOT NULL DEFAULT 'indefinite';
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS fixed_term_end DATE;
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS probation_applicable BOOLEAN NOT NULL DEFAULT FALSE;

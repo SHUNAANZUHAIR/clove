@@ -44,6 +44,7 @@ interface Employee {
   nationality?: string;
   current_address?: string;
   job_title?: string;
+  job_description?: string;
   employment_status?: 'indefinite' | 'fixed_term';
   fixed_term_end?: string | null;
   probation_applicable?: boolean;
@@ -131,6 +132,17 @@ const agreementJobTitles = [
   'Hand, kitchen',
 ];
 
+const agreementJobDescriptions: Record<string, string> = {
+  Waiter: 'Welcome guests, take orders, serve food and beverages, and keep the dining area clean and ready for service.',
+  'Assistant, kitchen': 'Support food preparation, ingredient handling, storage, cleaning, and kitchen hygiene under the cook’s direction.',
+  'Steward, kitchen': 'Clean and sanitize kitchen areas, equipment and utensils, manage waste, and maintain hygiene standards.',
+  Cook: 'Prepare and cook menu items, control portions and quality, store food safely, and maintain kitchen hygiene.',
+  'Washer, hand: dishes': 'Wash, sanitize, dry and organize dishes, cookware and utensils, and keep the washing area clean.',
+  'Maker, pastry': 'Prepare, bake and finish pastries and desserts while maintaining quality, stock control and food safety.',
+  'Cleaner, restaurant': 'Clean and sanitize dining, service and common areas and maintain a safe, tidy restaurant environment.',
+  'Hand, kitchen': 'Assist cooks with basic preparation, stock movement, cleaning and other routine kitchen support duties.',
+};
+
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const maxProfilePhotoBytes = 5 * 1024 * 1024;
 const profilePhotoMaxSize = 512;
@@ -152,6 +164,10 @@ const escapeAgreementValue = (value: unknown) => String(value ?? '')
 function printEmploymentAgreement(employee: Employee) {
   const value = (input: unknown, fallback = '____________________________') => escapeAgreementValue(input || fallback);
   const title = value(employee.job_title || jobLevelLabel(employee.job_level));
+  const jobDescription = value(
+    employee.job_description || agreementJobDescriptions[employee.job_title || ''],
+    'Duties will be assigned according to the employee’s position.'
+  );
   const employmentStatus = employee.employment_status || 'indefinite';
   const selected = (label: string) => `&#9745; ${label}`;
   const employmentTerm = employmentStatus === 'fixed_term'
@@ -182,7 +198,7 @@ function printEmploymentAgreement(employee: Employee) {
   <button class="no-print" onclick="window.print()">Print / Save as PDF</button><header>${cloveCafeEmployer}<br>${cloveCafeAddress}</header><h1>EMPLOYMENT AGREEMENT</h1>
   <p>This Employment Agreement is made between ${cloveCafeEmployer}, of ${cloveCafeAddress} (the “Employer”), and <strong>${value(employee.name)}</strong>, passport no. <strong>${value(employee.id_number)}</strong>, work permit no. <strong>${value(employee.work_permit_number)}</strong> (the “Employee”).</p>
   <table class="details"><tr><td>Employee name</td><td>${value(employee.name)}</td></tr><tr><td>Passport number</td><td>${value(employee.id_number)}</td></tr><tr><td>Work permit number</td><td>${value(employee.work_permit_number)}</td></tr><tr><td>Job title</td><td>${title}</td></tr><tr><td>Place of employment</td><td>${cloveCafeEmployer}, ${cloveCafeAddress}</td></tr><tr><td>Employment commencement date</td><td>${value(employee.join_date)}</td></tr><tr><td>Employee nationality</td><td>${value(employee.nationality)}</td></tr><tr><td>Permanent / current address</td><td>${value(employee.current_address, '____________________________________________________________')}</td></tr></table>
-  <h2>1. Appointment and duties</h2><p>The Employer appoints the Employee as ${title}. The Employee shall perform the duties normally associated with this position, comply with lawful and reasonable instructions, maintain hygiene and food-safety standards, protect the Employer’s property and reputation, and carry out related duties reasonably assigned by the Employer. A separate written job description may be issued and shall form part of this Agreement.</p>
+  <h2>1. Appointment and duties</h2><p>The Employer appoints the Employee as ${title}.</p><p><strong>Short job description:</strong> ${jobDescription}</p><p>The Employee shall comply with lawful and reasonable instructions, maintain hygiene and food-safety standards, protect the Employer’s property and reputation, and carry out related duties reasonably assigned by the Employer.</p>
   <h2>2. Employment status and term</h2><p>${employmentTerm}. Any fixed term and renewal shall comply with the Employment Act of the Maldives. Continuous service commences on the date stated above.</p>
   <h2>3. Probation</h2><p>${probationTerm}, not exceeding the maximum period permitted by Maldivian law.</p>
   <h2>4. Working hours, roster and breaks</h2><p>Normal working hours shall be ${value(employee.hours_per_day)} hours per day and ${value(employee.hours_per_week)} hours per week, according to a roster issued by the Employer. Statutory meal/rest breaks and weekly rest apply.</p>
@@ -220,6 +236,7 @@ const emptyProfileForm = {
   nationality: '',
   current_address: '',
   job_title: '',
+  job_description: '',
   employment_status: 'indefinite' as 'indefinite' | 'fixed_term',
   fixed_term_end: '',
   probation_applicable: false,
@@ -253,6 +270,7 @@ function employeeToProfileForm(employee: Employee, duplicate = false): typeof em
     nationality: duplicate ? '' : employee.nationality || '',
     current_address: duplicate ? '' : employee.current_address || '',
     job_title: employee.job_title || '',
+    job_description: employee.job_description || agreementJobDescriptions[employee.job_title || ''] || '',
     employment_status: employee.employment_status || 'indefinite',
     fixed_term_end: employee.fixed_term_end || '',
     probation_applicable: Boolean(employee.probation_applicable),
@@ -1359,13 +1377,25 @@ function EmployeeForm({
               <>
             <label>
               <span>Job title on agreement</span>
-              <select value={form.job_title} onChange={(event) => onChange({ ...form, job_title: event.target.value })}>
+              <select value={form.job_title} onChange={(event) => {
+                const jobTitle = event.target.value;
+                onChange({ ...form, job_title: jobTitle, job_description: agreementJobDescriptions[jobTitle] || '' });
+              }}>
                 <option value="">Select job title</option>
                 {form.job_title && !agreementJobTitles.includes(form.job_title) && (
                   <option value={form.job_title}>{form.job_title}</option>
                 )}
                 {agreementJobTitles.map((jobTitle) => <option key={jobTitle} value={jobTitle}>{jobTitle}</option>)}
               </select>
+            </label>
+            <label className="wide">
+              <span>Short job description</span>
+              <textarea
+                rows={3}
+                value={form.job_description}
+                onChange={(event) => onChange({ ...form, job_description: event.target.value })}
+                placeholder="Brief duties shown in the agreement"
+              />
             </label>
             <label>
               <span>Work permit number</span>

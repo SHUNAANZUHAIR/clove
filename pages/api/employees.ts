@@ -8,6 +8,7 @@ const jobLevels = new Set(['labour', 'mason', 'carpenter', 'supervisor']);
 
 const agreementColumns = [
   ['work_permit_number', 'TEXT'], ['nationality', 'TEXT'], ['current_address', 'TEXT'], ['job_title', 'TEXT'],
+  ['job_description', 'TEXT'],
   ['employment_status', "TEXT NOT NULL DEFAULT 'indefinite'"], ['fixed_term_end', 'DATE'],
   ['probation_applicable', 'BOOLEAN NOT NULL DEFAULT FALSE'], ['probation_months', 'INTEGER'],
   ['hours_per_day', 'NUMERIC(5,2)'], ['hours_per_week', 'NUMERIC(5,2)'], ['allowances_benefits', 'TEXT'],

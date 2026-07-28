@@ -1080,6 +1080,7 @@ button:disabled {
 
 .form-grid input,
 .form-grid select,
+.form-grid textarea,
 .team-add-row select {
   width: 100%;
   min-width: 0;
@@ -1123,6 +1124,7 @@ button:disabled {
 
 .form-grid input:focus,
 .form-grid select:focus,
+.form-grid textarea:focus,
 .filter-control:focus-within,
 .team-add-row select:focus,
 .search-pill:focus-within {
