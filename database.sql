@@ -88,11 +88,15 @@ CREATE TABLE IF NOT EXISTS attendance (
     employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
     attendance_date DATE NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'present',
+    in_time TIME,
+    out_time TIME,
     notes TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(employee_id, attendance_date)
 );
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS in_time TIME;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS out_time TIME;
 
 
 -- Create indexes for better performance

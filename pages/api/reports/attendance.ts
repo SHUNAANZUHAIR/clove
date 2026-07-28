@@ -7,6 +7,8 @@ interface AttendanceReportRow {
   id_number: string | null;
   site_name: string | null;
   status: string;
+  in_time: string | null;
+  out_time: string | null;
   notes: string;
 }
 
@@ -24,13 +26,15 @@ const tableTop = 108;
 const footerTop = pageHeight - 48;
 const rowsPerPage = Math.floor((footerTop - 18 - tableTop - rowHeight) / rowHeight);
 const columns: PdfColumn[] = [
-  { label: '#', width: 25 },
-  { label: 'Date', width: 70 },
-  { label: 'Employee', width: 160 },
-  { label: 'Passport/ID', width: 90 },
-  { label: 'Site', width: 155 },
-  { label: 'Status', width: 70 },
-  { label: 'Notes', width: 200 },
+  { label: '#', width: 22 },
+  { label: 'Date', width: 65 },
+  { label: 'Employee', width: 135 },
+  { label: 'Passport/ID', width: 80 },
+  { label: 'Site', width: 125 },
+  { label: 'Status', width: 60 },
+  { label: 'In', width: 55 },
+  { label: 'Out', width: 55 },
+  { label: 'Notes', width: 173 },
 ];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -67,6 +71,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         e.id_number,
         s.name AS site_name,
         COALESCE(a.status, 'not marked') AS status,
+        to_char(a.in_time, 'HH24:MI') AS in_time,
+        to_char(a.out_time, 'HH24:MI') AS out_time,
         COALESCE(a.notes, '') AS notes
       FROM report_dates d
       CROSS JOIN employees e
@@ -120,6 +126,8 @@ function renderPage(rows: AttendanceReportRow[], totalRows: number, startDate: s
         row.id_number || 'Not set',
         row.site_name || 'Unassigned',
         titleCase(row.status),
+        row.in_time || '-',
+        row.out_time || '-',
         row.notes || '',
       ], top, false);
       content += drawLine(margin, top + rowHeight, pageWidth - margin, top + rowHeight, '0.90 0.90 0.88');
@@ -232,10 +240,14 @@ async function ensureAttendanceTable() {
       employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
       attendance_date DATE NOT NULL,
       status VARCHAR(20) NOT NULL DEFAULT 'present',
+      in_time TIME,
+      out_time TIME,
       notes TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(employee_id, attendance_date)
     )
   `);
+  await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS in_time TIME');
+  await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS out_time TIME');
 }

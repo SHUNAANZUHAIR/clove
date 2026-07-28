@@ -99,6 +99,8 @@ interface AttendanceRecord {
   site_id: number | null;
   site_name: string | null;
   status: 'present' | 'absent' | 'leave' | 'off';
+  in_time: string | null;
+  out_time: string | null;
   notes: string;
 }
 
@@ -1620,14 +1622,16 @@ function AttendancePanel({
               <th>Employee</th>
               <th>Site</th>
               <th>Status</th>
+              <th>In time</th>
+              <th>Out time</th>
               <th>Notes</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr className="empty-table-row"><td colSpan={4}>Loading attendance...</td></tr>
+              <tr className="empty-table-row"><td colSpan={6}>Loading attendance...</td></tr>
             ) : visibleRecords.length === 0 ? (
-              <tr className="empty-table-row"><td colSpan={4}>No employees found</td></tr>
+              <tr className="empty-table-row"><td colSpan={6}>No employees found</td></tr>
             ) : visibleRecords.map((record) => (
               <tr key={record.employee_id}>
                 <td><strong>{record.employee_name}</strong><small>{record.id_number || 'No ID'}</small></td>
@@ -1643,6 +1647,22 @@ function AttendancePanel({
                     <option value="leave">Leave</option>
                     <option value="off">Off day</option>
                   </select>
+                </td>
+                <td>
+                  <input
+                    aria-label={`In time for ${record.employee_name}`}
+                    type="time"
+                    value={record.in_time || ''}
+                    onChange={(event) => updateRecord(record.employee_id, { in_time: event.target.value || null })}
+                  />
+                </td>
+                <td>
+                  <input
+                    aria-label={`Out time for ${record.employee_name}`}
+                    type="time"
+                    value={record.out_time || ''}
+                    onChange={(event) => updateRecord(record.employee_id, { out_time: event.target.value || null })}
+                  />
                 </td>
                 <td>
                   <input

@@ -19,6 +19,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           e.site_id,
           s.name AS site_name,
           COALESCE(a.status, 'present') AS status,
+          to_char(a.in_time, 'HH24:MI') AS in_time,
+          to_char(a.out_time, 'HH24:MI') AS out_time,
           COALESCE(a.notes, '') AS notes,
           a.id
         FROM employees e
@@ -41,27 +43,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (dates.length > 31) return res.status(400).json({ error: 'Attendance ranges are limited to 31 days' });
       if (records.length === 0) return res.status(400).json({ error: 'No attendance records supplied' });
 
-      const rows: Array<[number, string, string, string]> = [];
+      const rows: Array<[number, string, string, string, string | null, string | null]> = [];
       for (const record of records) {
         const employeeId = Number(record.employee_id);
         const status = String(record.status || '').toLowerCase();
         if (!Number.isInteger(employeeId) || employeeId <= 0 || !allowedStatuses.has(status)) continue;
+        const inTime = normalizeTime(record.in_time);
+        const outTime = normalizeTime(record.out_time);
         for (const attendanceDate of dates) {
-          rows.push([employeeId, attendanceDate, status, String(record.notes || '').slice(0, 500)]);
+          rows.push([employeeId, attendanceDate, status, String(record.notes || '').slice(0, 500), inTime, outTime]);
         }
       }
       if (rows.length === 0) return res.status(400).json({ error: 'No valid attendance records supplied' });
 
       const params = rows.flat();
       const placeholders = rows.map((_, index) => {
-        const offset = index * 4;
-        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`;
+        const offset = index * 6;
+        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6})`;
       }).join(', ');
       await query(`
-        INSERT INTO attendance (employee_id, attendance_date, status, notes)
+        INSERT INTO attendance (employee_id, attendance_date, status, notes, in_time, out_time)
         VALUES ${placeholders}
         ON CONFLICT (employee_id, attendance_date)
-        DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes, updated_at = CURRENT_TIMESTAMP
+        DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes,
+          in_time = EXCLUDED.in_time, out_time = EXCLUDED.out_time, updated_at = CURRENT_TIMESTAMP
       `, params);
       return res.status(200).json({ success: true, saved: rows.length, dates: dates.length });
     }
@@ -80,15 +85,23 @@ async function ensureAttendanceTable() {
       employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
       attendance_date DATE NOT NULL,
       status VARCHAR(20) NOT NULL DEFAULT 'present',
+      in_time TIME,
+      out_time TIME,
       notes TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(employee_id, attendance_date)
     )
   `);
+  await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS in_time TIME');
+  await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS out_time TIME');
 }
 
 function normalizeDate(value: unknown) {
   const candidate = Array.isArray(value) ? value[0] : value;
   return typeof candidate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(candidate) ? candidate : '';
+}
+
+function normalizeTime(value: unknown) {
+  return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : null;
 }
