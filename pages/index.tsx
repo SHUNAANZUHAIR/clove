@@ -1896,9 +1896,13 @@ function AttendancePanel({
   return (
     <section className="attendance-panel" aria-label="Employee attendance tracking">
       {!journeyOpen ? (
-        <button className="give-salary-button attendance-start-button" type="button" onClick={() => {
+        <button className="give-salary-button attendance-start-button" type="button" disabled={sites.length === 0 || records.length === 0} onClick={() => {
+          const loggedSiteId = sites[0]?.id.toString() || '';
           setJourneyOpen(true);
-          setJourneyStep(1);
+          setAttendanceScope('site');
+          setJourneySiteId(loggedSiteId);
+          setJourneyIncludedIds(records.filter((record) => record.site_id?.toString() === loggedSiteId).map((record) => record.employee_id));
+          setJourneyStep(2);
           setVisibleDateCount(5);
           setAttendanceConfirmation('');
         }}>
@@ -1912,8 +1916,8 @@ function AttendancePanel({
             <button className="soft-button compact" type="button" onClick={() => setJourneyOpen(false)}><X size={14} /> Close</button>
           </div>
           <div className="wizard-steps" aria-label="Attendance steps">
-            {['Employees', 'Date', 'Hours', 'Done'].map((label, index) => (
-              <button key={label} className={`wizard-step ${journeyStep === index + 1 ? 'is-current' : journeyStep > index + 1 ? 'is-complete' : 'is-upcoming'}`} type="button" disabled={index + 1 > journeyStep || index === 3} onClick={() => setJourneyStep(index + 1)}>
+            {['Site team', 'Date', 'Hours', 'Done'].map((label, index) => (
+              <button key={label} className={`wizard-step ${journeyStep === index + 1 ? 'is-current' : journeyStep > index + 1 ? 'is-complete' : 'is-upcoming'}`} type="button" disabled={index === 0 || index + 1 > journeyStep || index === 3} onClick={() => setJourneyStep(index + 1)}>
                 <span className="wizard-step-node">{journeyStep > index + 1 ? <Check size={17} /> : index + 1}</span>
                 <span className="wizard-step-label">{label}</span>
               </button>
@@ -1940,7 +1944,7 @@ function AttendancePanel({
               })}
             </div>
             <button className="text-link attendance-load-more" type="button" onClick={() => setVisibleDateCount((count) => count + 5)}>Load previous 5 days</button>
-            <div className="action-row"><button className="soft-button" type="button" onClick={() => setJourneyStep(1)}><ChevronLeft size={16} /> Back</button><button className="dark-button" type="button" onClick={() => setJourneyStep(3)}>Next <ChevronRight size={16} /></button></div>
+            <div className="action-row"><button className="dark-button" type="button" onClick={() => setJourneyStep(3)}>Continue <ChevronRight size={16} /></button></div>
           </div>}
           {journeyStep === 3 && <div className="wizard-panel">
             {isFridayDate(date) ? <p className="friday-attendance-note">Friday is an off day. No in or out time will be recorded.</p> : <div className="form-grid compact-grid attendance-time-grid"><label><span>In time</span><input aria-label="Attendance in time" type="time" value={journeyInTime} onChange={(event) => setJourneyInTime(event.target.value)} /></label><label><span>Out time</span><input aria-label="Attendance out time" type="time" value={journeyOutTime} onChange={(event) => setJourneyOutTime(event.target.value)} /></label></div>}
