@@ -18,9 +18,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           e.id_number,
           e.site_id,
           s.name AS site_name,
-          COALESCE(a.status, 'present') AS status,
-          COALESCE(to_char(a.in_time, 'HH24:MI'), '09:00') AS in_time,
-          COALESCE(to_char(a.out_time, 'HH24:MI'), '17:00') AS out_time,
+          CASE WHEN EXTRACT(ISODOW FROM $1::date) = 5 THEN 'off' ELSE COALESCE(a.status, 'present') END AS status,
+          CASE WHEN EXTRACT(ISODOW FROM $1::date) = 5 THEN NULL ELSE COALESCE(to_char(a.in_time, 'HH24:MI'), '09:00') END AS in_time,
+          CASE WHEN EXTRACT(ISODOW FROM $1::date) = 5 THEN NULL ELSE COALESCE(to_char(a.out_time, 'HH24:MI'), '17:00') END AS out_time,
           COALESCE(a.notes, '') AS notes,
           a.id
         FROM employees e
@@ -51,7 +51,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const inTime = normalizeTime(record.in_time);
         const outTime = normalizeTime(record.out_time);
         for (const attendanceDate of dates) {
-          rows.push([employeeId, attendanceDate, status, String(record.notes || '').slice(0, 500), inTime, outTime]);
+          const friday = isFridayDate(attendanceDate);
+          rows.push([
+            employeeId,
+            attendanceDate,
+            friday ? 'off' : status,
+            String(record.notes || '').slice(0, 500),
+            friday ? null : inTime,
+            friday ? null : outTime,
+          ]);
         }
       }
       if (rows.length === 0) return res.status(400).json({ error: 'No valid attendance records supplied' });
@@ -104,4 +112,8 @@ function normalizeDate(value: unknown) {
 
 function normalizeTime(value: unknown) {
   return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : null;
+}
+
+function isFridayDate(value: string) {
+  return new Date(`${value}T00:00:00Z`).getUTCDay() === 5;
 }

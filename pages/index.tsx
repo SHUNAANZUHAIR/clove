@@ -413,10 +413,12 @@ export default function Home() {
       const res = await fetch(`/api/attendance?date=${date}`);
       if (!res.ok) throw new Error('Could not load attendance');
       const records = await res.json() as AttendanceRecord[];
+      const friday = isFridayDate(date);
       setAttendanceRecords(records.map((record) => ({
         ...record,
-        in_time: record.in_time || '09:00',
-        out_time: record.out_time || '17:00',
+        status: friday ? 'off' : record.status,
+        in_time: friday ? null : record.in_time || '09:00',
+        out_time: friday ? null : record.out_time || '17:00',
       })));
     } catch (error) {
       console.error(error);
@@ -1619,6 +1621,7 @@ function AttendancePanel({
 }) {
   const [selectedAttendanceSite, setSelectedAttendanceSite] = useState('all');
   const [dateSelectionMode, setDateSelectionMode] = useState<'single' | 'between'>('single');
+  const friday = isFridayDate(date);
   const siteRecords = records.filter((record) => (
     selectedAttendanceSite === 'all' || record.site_id?.toString() === selectedAttendanceSite
   ));
@@ -1683,7 +1686,7 @@ function AttendancePanel({
               ? { ...record, status: 'present' }
               : record
           )))}
-          disabled={loading || siteRecords.length === 0}
+          disabled={friday || loading || siteRecords.length === 0}
         >
           <Check size={16} />
           Mark all present
@@ -1701,6 +1704,7 @@ function AttendancePanel({
       </section>
 
       <SectionHeader title="Daily attendance" action={`${visibleRecords.length} employees`} />
+      {friday && <p className="friday-attendance-note">Friday is a non-working day. In and out times are not recorded.</p>}
       <div className="table-shell">
         <table className="salary-table attendance-table">
           <thead>
@@ -1719,7 +1723,7 @@ function AttendancePanel({
             ) : visibleRecords.length === 0 ? (
               <tr className="empty-table-row"><td colSpan={6}>No employees found</td></tr>
             ) : visibleRecords.map((record) => (
-              <tr key={record.employee_id}>
+              <tr key={record.employee_id} className={friday ? 'friday-attendance-row' : undefined}>
                 <td><strong>{record.employee_name}</strong><small>{record.id_number || 'No ID'}</small></td>
                 <td>{record.site_name || 'Unassigned'}</td>
                 <td>
@@ -1727,6 +1731,7 @@ function AttendancePanel({
                     aria-label={`Attendance status for ${record.employee_name}`}
                     value={record.status}
                     onChange={(event) => updateRecord(record.employee_id, { status: event.target.value as AttendanceRecord['status'] })}
+                    disabled={friday}
                   >
                     <option value="present">Present</option>
                     <option value="absent">Absent</option>
@@ -1740,6 +1745,7 @@ function AttendancePanel({
                     type="time"
                     value={record.in_time || ''}
                     onChange={(event) => updateRecord(record.employee_id, { in_time: event.target.value || null })}
+                    disabled={friday}
                   />
                 </td>
                 <td>
@@ -1748,6 +1754,7 @@ function AttendancePanel({
                     type="time"
                     value={record.out_time || ''}
                     onChange={(event) => updateRecord(record.employee_id, { out_time: event.target.value || null })}
+                    disabled={friday}
                   />
                 </td>
                 <td>
@@ -2102,6 +2109,10 @@ function getAttendanceDateRange(startDate: string, endDate: string) {
     dates.push(current.toISOString().slice(0, 10));
   }
   return dates;
+}
+
+function isFridayDate(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && new Date(`${value}T00:00:00Z`).getUTCDay() === 5;
 }
 
 function formatDate(value?: string | null) {

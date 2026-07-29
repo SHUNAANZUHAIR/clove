@@ -70,9 +70,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         e.name AS employee_name,
         e.id_number,
         s.name AS site_name,
-        COALESCE(a.status, 'not marked') AS status,
-        to_char(a.in_time, 'HH24:MI') AS in_time,
-        to_char(a.out_time, 'HH24:MI') AS out_time,
+        CASE WHEN EXTRACT(ISODOW FROM d.attendance_date) = 5 THEN 'off' ELSE COALESCE(a.status, 'not marked') END AS status,
+        CASE WHEN EXTRACT(ISODOW FROM d.attendance_date) = 5 THEN NULL ELSE to_char(a.in_time, 'HH24:MI') END AS in_time,
+        CASE WHEN EXTRACT(ISODOW FROM d.attendance_date) = 5 THEN NULL ELSE to_char(a.out_time, 'HH24:MI') END AS out_time,
         COALESCE(a.notes, '') AS notes
       FROM report_dates d
       CROSS JOIN employees e
@@ -123,7 +123,9 @@ function renderPage(rows: AttendanceReportRow[], totalRows: number, startDate: s
     rows.forEach((row, index) => {
       const top = tableTop + rowHeight + index * rowHeight;
       const startsEmployee = index === 0 || rows[index - 1].employee_name !== row.employee_name;
-      if (index % 2 === 1) content += drawRect(margin, top, tableWidth, rowHeight, '0.98 0.98 0.97');
+      const friday = isFridayDate(row.attendance_date);
+      if (friday) content += drawRect(margin, top, tableWidth, rowHeight, '1 0.90 0.90');
+      else if (index % 2 === 1) content += drawRect(margin, top, tableWidth, rowHeight, '0.98 0.98 0.97');
       if (startsEmployee) content += drawLine(margin, top, pageWidth - margin, top, '0.48 0.66 0.75');
       content += drawRowText([
         String(index + 1 + (pageNumber - 1) * rowsPerPage),
@@ -131,11 +133,11 @@ function renderPage(rows: AttendanceReportRow[], totalRows: number, startDate: s
         row.employee_name,
         row.id_number || 'Not set',
         row.site_name || 'Unassigned',
-        titleCase(row.status),
-        row.in_time || '-',
-        row.out_time || '-',
+        friday ? 'Off' : titleCase(row.status),
+        friday ? '-' : row.in_time || '-',
+        friday ? '-' : row.out_time || '-',
         row.notes || '',
-      ], top, false);
+      ], top, false, friday ? '0.72 0.08 0.08' : undefined);
       content += drawLine(margin, top + rowHeight, pageWidth - margin, top + rowHeight, '0.90 0.90 0.88');
     });
   }
@@ -146,11 +148,11 @@ function renderPage(rows: AttendanceReportRow[], totalRows: number, startDate: s
   return content;
 }
 
-function drawRowText(values: string[], top: number, isHeader: boolean) {
+function drawRowText(values: string[], top: number, isHeader: boolean, colorOverride?: string) {
   let x = margin;
   let content = '';
   const fontSize = isHeader ? 7.5 : 8;
-  const color = isHeader ? '0.30 0.30 0.28' : '0.12 0.12 0.12';
+  const color = colorOverride || (isHeader ? '0.30 0.30 0.28' : '0.12 0.12 0.12');
   columns.forEach((column, index) => {
     content += drawText(x + 7, top + 14, truncateText(values[index] || '', column.width, fontSize), fontSize, color);
     x += column.width;
@@ -233,6 +235,10 @@ function singleValue(value: string | string[] | undefined) {
 
 function titleCase(value: string) {
   return value.split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
+
+function isFridayDate(value: string) {
+  return new Date(`${value}T00:00:00Z`).getUTCDay() === 5;
 }
 
 function number(value: number) {

@@ -1881,6 +1881,29 @@ button:disabled {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.friday-attendance-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #f2b8b8;
+  border-radius: 10px;
+  background: #fff0f0;
+  color: #a61b1b;
+  font-weight: 700;
+}
+
+.attendance-table tbody tr.friday-attendance-row,
+.attendance-table tbody tr.friday-attendance-row:hover {
+  background: #fff0f0;
+  color: #a61b1b;
+}
+
+.attendance-table .friday-attendance-row select,
+.attendance-table .friday-attendance-row input {
+  color: #a61b1b;
+  border-color: #efb4b4;
+  background: #fff7f7;
+}
+
 @media (max-width: 460px) {
   .app-shell {
     padding: 12px;
