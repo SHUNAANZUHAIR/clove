@@ -500,7 +500,6 @@ export default function Home() {
       if (!res.ok) throw new Error('Could not save attendance');
       await fetchAttendance(attendanceDate);
       await fetchAttendanceHistory();
-      alert(dates.length === 1 ? 'Attendance saved.' : `Attendance saved for ${dates.length} days.`);
     } catch (error) {
       console.error(error);
       alert('Attendance could not be saved. Please try again.');
@@ -1820,6 +1819,15 @@ function AttendancePanel({
   onChange: (records: AttendanceRecord[]) => void;
   onSave: (records: AttendanceRecord[], endDate?: string, siteId?: string) => void;
 }) {
+  const [journeyOpen, setJourneyOpen] = useState(false);
+  const [journeyStep, setJourneyStep] = useState(1);
+  const [attendanceScope, setAttendanceScope] = useState<'employee' | 'site'>('site');
+  const [journeyEmployeeId, setJourneyEmployeeId] = useState('');
+  const [journeySiteId, setJourneySiteId] = useState('');
+  const [visibleDateCount, setVisibleDateCount] = useState(7);
+  const [journeyInTime, setJourneyInTime] = useState('09:00');
+  const [journeyOutTime, setJourneyOutTime] = useState('17:00');
+  const [attendanceConfirmation, setAttendanceConfirmation] = useState('');
   const [selectedAttendanceSite, setSelectedAttendanceSite] = useState('all');
   const [dateSelectionMode, setDateSelectionMode] = useState<'single' | 'between'>('single');
   const friday = isFridayDate(date);
@@ -1841,8 +1849,90 @@ function AttendancePanel({
     onChange(records.map((record) => record.employee_id === employeeId ? { ...record, ...updates } : record));
   };
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const journeyDates = Array.from({ length: visibleDateCount }, (_, index) => {
+    const item = new Date(today);
+    item.setDate(today.getDate() + index);
+    return item;
+  });
+  const targetRecords = attendanceScope === 'site'
+    ? records.filter((record) => record.site_id?.toString() === journeySiteId)
+    : records.filter((record) => record.employee_id.toString() === journeyEmployeeId);
+  const targetLabel = attendanceScope === 'site'
+    ? sites.find((site) => site.id.toString() === journeySiteId)?.name || ''
+    : records.find((record) => record.employee_id.toString() === journeyEmployeeId)?.employee_name || '';
+  const hasTarget = targetRecords.length > 0;
+
+  const submitJourneyAttendance = async () => {
+    const fridaySelection = isFridayDate(date);
+    const submittedRecords = targetRecords.map((record) => ({
+      ...record,
+      status: fridaySelection ? 'off' as const : 'present' as const,
+      in_time: fridaySelection ? null : journeyInTime,
+      out_time: fridaySelection ? null : journeyOutTime,
+    }));
+    await Promise.resolve(onSave(submittedRecords, date, attendanceScope === 'site' ? journeySiteId : 'all'));
+    setAttendanceConfirmation(`${targetRecords.map((record) => record.employee_name).join(', ')} — attendance recorded.`);
+    setJourneyStep(4);
+  };
+
   return (
     <section className="attendance-panel" aria-label="Employee attendance tracking">
+      {!journeyOpen ? (
+        <button className="give-salary-button attendance-start-button" type="button" onClick={() => {
+          setJourneyOpen(true);
+          setJourneyStep(1);
+          setAttendanceConfirmation('');
+        }}>
+          <ClipboardCheck size={20} />
+          SUBMIT ATTENDANCE
+        </button>
+      ) : (
+        <section className="attendance-journey">
+          <div className="wizard-head">
+            <div><h2>Submit attendance</h2><span>{targetLabel || 'Choose employees'}</span></div>
+            <button className="soft-button compact" type="button" onClick={() => setJourneyOpen(false)}><X size={14} /> Close</button>
+          </div>
+          <div className="wizard-steps" aria-label="Attendance steps">
+            {['Employees', 'Date', 'Hours', 'Done'].map((label, index) => (
+              <button key={label} className={`wizard-step ${journeyStep === index + 1 ? 'is-current' : journeyStep > index + 1 ? 'is-complete' : 'is-upcoming'}`} type="button" disabled={index + 1 > journeyStep || index === 3} onClick={() => setJourneyStep(index + 1)}>
+                <span className="wizard-step-node">{journeyStep > index + 1 ? <Check size={17} /> : index + 1}</span>
+                <span className="wizard-step-label">{label}</span>
+              </button>
+            ))}
+          </div>
+          {journeyStep === 1 && <div className="wizard-panel">
+            <div className="form-grid compact-grid">
+              <label><span>Submit attendance by</span><select value={attendanceScope} onChange={(event) => setAttendanceScope(event.target.value as 'employee' | 'site')}><option value="site">Work site</option><option value="employee">Employee</option></select></label>
+              {attendanceScope === 'site' ? (
+                <label><span>Work site</span><select value={journeySiteId} onChange={(event) => setJourneySiteId(event.target.value)}><option value="">Select work site</option>{sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}</select></label>
+              ) : (
+                <label><span>Employee</span><select value={journeyEmployeeId} onChange={(event) => setJourneyEmployeeId(event.target.value)}><option value="">Select employee</option>{records.map((record) => <option key={record.employee_id} value={record.employee_id}>{record.employee_name}</option>)}</select></label>
+              )}
+            </div>
+            {hasTarget && <p className="journey-selection-note">{targetRecords.length} employee{targetRecords.length === 1 ? '' : 's'} selected</p>}
+            <div className="action-row"><button className="dark-button" type="button" disabled={!hasTarget} onClick={() => setJourneyStep(2)}>Next <ChevronRight size={16} /></button></div>
+          </div>}
+          {journeyStep === 2 && <div className="wizard-panel">
+            <div className="attendance-date-strip" aria-label="Select attendance date">
+              {journeyDates.map((item) => {
+                const value = localDateValue(item);
+                return <button key={value} className={date === value ? 'is-selected' : ''} type="button" onClick={() => onDateChange(value)}><small>{item.toLocaleDateString('en-US', { weekday: 'short' })}</small><strong>{item.getDate()}</strong><span>{item.toLocaleDateString('en-US', { month: 'short' })}</span></button>;
+              })}
+            </div>
+            <button className="text-link attendance-load-more" type="button" onClick={() => setVisibleDateCount((count) => count + 7)}>Load 7 more days</button>
+            <div className="action-row"><button className="soft-button" type="button" onClick={() => setJourneyStep(1)}><ChevronLeft size={16} /> Back</button><button className="dark-button" type="button" onClick={() => setJourneyStep(3)}>Next <ChevronRight size={16} /></button></div>
+          </div>}
+          {journeyStep === 3 && <div className="wizard-panel">
+            {isFridayDate(date) ? <p className="friday-attendance-note">Friday is an off day. No in or out time will be recorded.</p> : <div className="form-grid compact-grid"><label><span>In time</span><input type="time" value={journeyInTime} onChange={(event) => setJourneyInTime(event.target.value)} /></label><label><span>Out time</span><input type="time" value={journeyOutTime} onChange={(event) => setJourneyOutTime(event.target.value)} /></label></div>}
+            <div className="action-row"><button className="soft-button" type="button" onClick={() => setJourneyStep(2)}><ChevronLeft size={16} /> Back</button><button className="dark-button" type="button" disabled={saving || loading || !hasTarget} onClick={submitJourneyAttendance}><Save size={16} /> {saving ? 'Submitting...' : 'Submit attendance'}</button></div>
+          </div>}
+          {journeyStep === 4 && <div className="wizard-panel attendance-success"><UserCheck size={30} /><h3>Attendance recorded</h3><p>{attendanceConfirmation}</p><button className="dark-button" type="button" onClick={() => { setJourneyOpen(false); setJourneyStep(1); }}>Done</button></div>}
+        </section>
+      )}
+
+      {false && <>
       <div className="attendance-toolbar">
         <div className={`attendance-date-controls${dateSelectionMode === 'between' ? ' is-range' : ''}`} aria-label="Attendance date range">
           <label className="filter-control">
@@ -1971,6 +2061,7 @@ function AttendancePanel({
           </tbody>
         </table>
       </div>
+      </>}
 
       <SectionHeader title="Attendance history" action={`${history.length} saved`} />
       <div className="table-shell">
@@ -2390,6 +2481,13 @@ function getAttendanceDateRange(startDate: string, endDate: string) {
 
 function isFridayDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && new Date(`${value}T00:00:00Z`).getUTCDay() === 5;
+}
+
+function localDateValue(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function formatDate(value?: string | null) {
