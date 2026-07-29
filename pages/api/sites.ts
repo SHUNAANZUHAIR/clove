@@ -2,13 +2,18 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../lib/db';
 import { requestSiteId } from '../../lib/request-auth';
+import { ensureSitePasswordSchema } from '../../lib/auth';
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const authenticatedSiteId = requestSiteId(req);
+    await ensureSitePasswordSchema();
     if (req.method === 'GET') {
-      const result = await query('SELECT * FROM sites WHERE ($1 = -1 OR id = $1) ORDER BY id DESC', [authenticatedSiteId]);
+      const result = await query(
+        'SELECT id, name, location, created_at, (password_hash IS NOT NULL) AS has_password FROM sites WHERE ($1 = -1 OR id = $1) ORDER BY id DESC',
+        [authenticatedSiteId]
+      );
       return res.status(200).json(result.rows);
     }
 
@@ -16,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === 'POST') {
       if (authenticatedSiteId !== -1) return res.status(403).json({ error: 'Site logins cannot create other work sites.' });
       const { name, location } = req.body;
-      const result = await query('INSERT INTO sites (name, location) VALUES ($1, $2) RETURNING *', [name, location]);
+      const result = await query('INSERT INTO sites (name, location) VALUES ($1, $2) RETURNING id, name, location, created_at, FALSE AS has_password', [name, location]);
       return res.status(201).json(result.rows[0]);
     }
 
@@ -24,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === 'PUT') {
       const { id, name, location } = req.body;
       const result = await query(
-        'UPDATE sites SET name=$1, location=$2 WHERE id=$3 AND ($4 = -1 OR id=$4) RETURNING *',
+        'UPDATE sites SET name=$1, location=$2 WHERE id=$3 AND ($4 = -1 OR id=$4) RETURNING id, name, location, created_at, (password_hash IS NOT NULL) AS has_password',
         [name, location, id, authenticatedSiteId]
       );
       return res.status(200).json(result.rows[0]);
