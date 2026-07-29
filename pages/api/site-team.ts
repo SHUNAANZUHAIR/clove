@@ -1,12 +1,13 @@
 // pages/api/site-team.ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../lib/db';
-import { requestSiteId } from '../../lib/request-auth';
+import { requestSiteId, isSuperAdmin } from '../../lib/request-auth';
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const authenticatedSiteId = requestSiteId(req);
+    if (!isSuperAdmin(authenticatedSiteId)) return res.status(403).json({ error: 'Only super admin can access the team workspace.' });
     if (req.method === 'GET') {
       const { siteId } = req.query;
       const result = await query(`

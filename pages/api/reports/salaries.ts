@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../../lib/db';
-import { requestSiteId } from '../../../lib/request-auth';
+import { requestSiteId, isSuperAdmin } from '../../../lib/request-auth';
 
 interface SalaryReportRow {
   employee_name: string;
@@ -48,6 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const siteId = requestSiteId(req);
+    if (!isSuperAdmin(siteId)) return res.status(403).json({ error: 'Only super admin can access payroll.' });
     const month = singleValue(req.query.month);
     const status = singleValue(req.query.status);
     const params: Array<string | number> = [siteId];

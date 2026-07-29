@@ -360,6 +360,12 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (!loading && !isSuperAdmin && (activeTab === 'profile' || activeTab === 'salary')) {
+      setActiveTab('attendance');
+    }
+  }, [loading, isSuperAdmin, activeTab]);
+
+  useEffect(() => {
     if (activeTab !== 'attendance') return;
     fetchAttendance(attendanceDate);
     fetchAttendanceHistory();
@@ -895,10 +901,10 @@ export default function Home() {
             <span>{subtitle}</span>
           </div>
           <div className="header-actions">
-            <span className="employee-count-chip" title="Total employees">
+            {isSuperAdmin && <span className="employee-count-chip" title="Total employees">
               <UsersRound size={16} />
               {employees.length}
-            </span>
+            </span>}
             {isSuperAdmin && <button
               className={`icon-button${activeTab === 'site' ? ' is-active' : ''}`}
               title="Sites"
@@ -915,14 +921,14 @@ export default function Home() {
         </header>
 
         <nav className="quick-tabs" aria-label="Main sections">
-          <button className={activeTab === 'profile' ? 'is-active' : ''} onClick={() => setActiveTab('profile')} type="button">
+          {isSuperAdmin && <button className={activeTab === 'profile' ? 'is-active' : ''} onClick={() => setActiveTab('profile')} type="button">
             <UsersRound size={17} />
             Team
-          </button>
-          <button className={activeTab === 'salary' ? 'is-active' : ''} onClick={() => setActiveTab('salary')} type="button">
+          </button>}
+          {isSuperAdmin && <button className={activeTab === 'salary' ? 'is-active' : ''} onClick={() => setActiveTab('salary')} type="button">
             <CircleDollarSign size={17} />
             Salary
-          </button>
+          </button>}
           <button className={activeTab === 'attendance' ? 'is-active' : ''} onClick={() => setActiveTab('attendance')} type="button">
             <ClipboardCheck size={17} />
             Attendance
@@ -933,7 +939,7 @@ export default function Home() {
           <div className="empty-state">Loading workspace...</div>
         ) : (
           <div className="content-stack">
-            {activeTab === 'profile' && (
+            {activeTab === 'profile' && isSuperAdmin && (
               <>
                 <SectionHeader
                   title="Team"
@@ -1053,7 +1059,7 @@ export default function Home() {
               </>
             )}
 
-            {activeTab === 'salary' && (
+            {activeTab === 'salary' && isSuperAdmin && (
               <section className="salary-interface" aria-label="Salary interface">
 	                <div className="salary-interface-content">
 	                  <SalaryJourney
