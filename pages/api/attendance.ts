@@ -36,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           e.site_id,
           s.name AS site_name,
           CASE WHEN EXTRACT(ISODOW FROM $1::date) = 5 THEN 'off' ELSE COALESCE(a.status, 'present') END AS status,
-          CASE WHEN EXTRACT(ISODOW FROM $1::date) = 5 THEN NULL ELSE COALESCE(to_char(a.in_time, 'HH24:MI'), '09:00') END AS in_time,
+          CASE WHEN EXTRACT(ISODOW FROM $1::date) = 5 THEN NULL ELSE COALESCE(to_char(a.in_time, 'HH24:MI'), '07:00') END AS in_time,
           CASE WHEN EXTRACT(ISODOW FROM $1::date) = 5 THEN NULL ELSE COALESCE(to_char(a.out_time, 'HH24:MI'), '17:00') END AS out_time,
           CASE WHEN EXTRACT(ISODOW FROM $1::date) = 5 THEN NULL ELSE to_char(a.ot_in_time, 'HH24:MI') END AS ot_in_time,
           CASE WHEN EXTRACT(ISODOW FROM $1::date) = 5 THEN NULL ELSE to_char(a.ot_out_time, 'HH24:MI') END AS ot_out_time,
