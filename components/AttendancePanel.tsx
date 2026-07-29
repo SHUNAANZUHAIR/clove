@@ -89,7 +89,7 @@ export function AttendancePanel({
   const [journeySiteId, setJourneySiteId] = useState('');
   const [journeyIncludedIds, setJourneyIncludedIds] = useState<number[] | null>(null);
   const [visibleDateCount, setVisibleDateCount] = useState(5);
-  const [journeyInTime, setJourneyInTime] = useState('09:00');
+  const [journeyInTime, setJourneyInTime] = useState('07:00');
   const [journeyOutTime, setJourneyOutTime] = useState('17:00');
   const [journeyOtInTime, setJourneyOtInTime] = useState('');
   const [journeyOtOutTime, setJourneyOtOutTime] = useState('');
