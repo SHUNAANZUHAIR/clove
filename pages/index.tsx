@@ -965,7 +965,6 @@ export default function Home() {
                           requestAnimationFrame(() => document.getElementById('employee-onboarding')?.scrollIntoView({ behavior: 'smooth' }));
                         }}
                         onDelete={handleDeleteEmployee}
-                        onTerminate={handleEmployeeTermination}
                         onAgreementToggle={(employeeId) => setSelectedAgreementIds((current) => (
                           current.includes(employeeId)
                             ? current.filter((id) => id !== employeeId)
@@ -988,6 +987,7 @@ export default function Home() {
                   saveStatus={employeeSaveStatus}
                   previousEmployee={editingEmployeeIndex > 0 ? orderedTeamEmployees[editingEmployeeIndex - 1] : null}
                   nextEmployee={editingEmployeeIndex >= 0 && editingEmployeeIndex < orderedTeamEmployees.length - 1 ? orderedTeamEmployees[editingEmployeeIndex + 1] : null}
+                  terminationEmployee={employees.find((employee) => employee.id === profileForm.id) || null}
                   onSubmit={handleSaveEmployee}
                   onChange={(form) => {
                     setEmployeeSaveStatus('');
@@ -1002,6 +1002,7 @@ export default function Home() {
                     setEmployeeSaveStatus('');
                     setProfileForm((current) => ({ ...current, photo: '' }));
                   }}
+                  onTerminate={handleEmployeeTermination}
                   onCancel={() => {
                     setEmployeeSaveStatus('');
                     setProfileForm(emptyProfileForm);
@@ -1346,7 +1347,6 @@ function TeamGroup({
   onEdit,
   onDuplicate,
   onDelete,
-  onTerminate,
   onAgreementToggle,
   onAgreementGroupToggle,
 }: {
@@ -1358,7 +1358,6 @@ function TeamGroup({
   onEdit: (employee: Employee) => void;
   onDuplicate: (employee: Employee) => void;
   onDelete: (id: number) => void;
-  onTerminate: (employee: Employee) => void;
   onAgreementToggle: (id: number) => void;
   onAgreementGroupToggle: (ids: number[]) => void;
 }) {
@@ -1444,15 +1443,6 @@ function TeamGroup({
                   <Pencil size={15} />
                 </button>
                 <button
-                  className={`icon-button small${employee.is_terminated ? '' : ' danger'}`}
-                  title={employee.is_terminated ? 'Reactivate employee' : 'Terminate employee'}
-                  aria-label={employee.is_terminated ? `Reactivate ${employee.name}` : `Terminate ${employee.name}`}
-                  type="button"
-                  onClick={() => onTerminate(employee)}
-                >
-                  {employee.is_terminated ? <UserCheck size={15} /> : <UserX size={15} />}
-                </button>
-                <button
                   className="icon-button small danger"
                   title="Delete employee"
                   type="button"
@@ -1475,11 +1465,13 @@ function EmployeeForm({
   saveStatus,
   previousEmployee,
   nextEmployee,
+  terminationEmployee,
   onSubmit,
   onChange,
   onNavigate,
   onPhotoChange,
   onPhotoClear,
+  onTerminate,
   onCancel,
 }: {
   employeesSites: Site[];
@@ -1487,11 +1479,13 @@ function EmployeeForm({
   saveStatus: string;
   previousEmployee: Employee | null;
   nextEmployee: Employee | null;
+  terminationEmployee: Employee | null;
   onSubmit: (event: FormEvent) => void;
   onChange: (form: typeof emptyProfileForm) => void;
   onNavigate: (employee: Employee) => void;
   onPhotoChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onPhotoClear: () => void;
+  onTerminate: (employee: Employee) => void;
   onCancel: () => void;
 }) {
   const selectedWorkSite = employeesSites.find((site) => site.id.toString() === form.site_id);
@@ -1696,6 +1690,16 @@ function EmployeeForm({
           </div>
           <div className="action-row">
             {saveStatus && <span className="save-confirmation" role="status">{saveStatus}</span>}
+            {terminationEmployee && (
+              <button
+                className={`soft-button${terminationEmployee.is_terminated ? '' : ' danger'}`}
+                type="button"
+                onClick={() => onTerminate(terminationEmployee)}
+              >
+                {terminationEmployee.is_terminated ? <UserCheck size={16} /> : <UserX size={16} />}
+                {terminationEmployee.is_terminated ? 'Reactivate employee' : 'Terminate employee'}
+              </button>
+            )}
             {form.id > 0 && (
               <button className="soft-button" type="button" onClick={onCancel}>
                 <X size={16} />
