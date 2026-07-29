@@ -554,7 +554,15 @@ button:disabled {
 .employee-quick-trigger,
 .employee-name-trigger { border: 0; padding: 0; color: inherit; background: transparent; text-align: left; }
 .employee-quick-trigger { display: inline-flex; border-radius: 50%; }
-.employee-name-trigger { width: fit-content; font: inherit; font-weight: 700; }
+.employee-name-trigger {
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: inherit;
+  font-weight: 700;
+}
 .employee-quick-trigger:hover,
 .employee-name-trigger:hover { color: var(--primary-ink); }
 

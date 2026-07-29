@@ -1424,13 +1424,8 @@ function TeamGroup({
               </button>
               <div className="card-main">
                 <button className="employee-name-trigger" type="button" onClick={() => onView(employee)}>{employee.name}</button>
-                {employee.is_terminated && <span className="employee-terminated-badge">TERMINATED{employee.terminated_at ? ` · ${formatDate(employee.terminated_at)}` : ''}</span>}
-                <span>{employee.site_name || 'Unassigned'} / {formatCurrency(employee.salary)}</span>
-                <small>
-                  {employee.id_number || 'No ID'} / {jobLevelLabel(employee.job_level)} / {paymentLabel(employee.medium)}
-                  {employee.join_date ? ` / Joined ${formatDate(employee.join_date)}` : ''}
-                  {employee.birth_date ? ` / DOB ${formatDate(employee.birth_date)}` : ''}
-                </small>
+                <span>{employee.site_name || 'Unassigned'}</span>
+                <small>Passport: {employee.id_number || 'Not provided'}</small>
               </div>
               <div className="row-actions">
                 {index === 0 && (
