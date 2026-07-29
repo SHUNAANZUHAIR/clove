@@ -4,9 +4,8 @@ import { authCookieName, authMaxAge, createSession, verifyPassword } from '../..
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const username = String(req.body?.username || '').trim().toUpperCase();
   const siteId = Number(req.body?.site_id);
-  if (username !== 'SITE' || !verifyPassword(req.body?.password) || !Number.isInteger(siteId) || siteId <= 0) {
+  if (!verifyPassword(req.body?.password) || !Number.isInteger(siteId) || siteId <= 0) {
     return res.status(401).json({ error: 'Invalid site login details.' });
   }
   const site = await query('SELECT id FROM sites WHERE id = $1', [siteId]);
