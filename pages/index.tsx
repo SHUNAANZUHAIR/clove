@@ -326,6 +326,7 @@ export default function Home() {
   const [salarySiteMemberIds, setSalarySiteMemberIds] = useState<number[]>([]);
   const [selectedSite, setSelectedSite] = useState<number | null>(null);
   const [selectedSalaryIds, setSelectedSalaryIds] = useState<number[]>([]);
+  const [selectedAgreementIds, setSelectedAgreementIds] = useState<number[]>([]);
   const [teamSelections, setTeamSelections] = useState<Record<number, string>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -894,10 +895,25 @@ export default function Home() {
                         <Download size={15} />
                         PDF
                       </a>
-                      <a className="soft-button compact" href="/api/reports/agreement?all=1">
-                        <Download size={15} />
-                        All agreements
-                      </a>
+                      <button
+                        className="soft-button compact"
+                        type="button"
+                        onClick={() => setSelectedAgreementIds((current) => {
+                          const listedIds = filteredEmployees.map((employee) => employee.id);
+                          const allListedSelected = listedIds.length > 0 && listedIds.every((id) => current.includes(id));
+                          return allListedSelected
+                            ? current.filter((id) => !listedIds.includes(id))
+                            : Array.from(new Set([...current, ...listedIds]));
+                        })}
+                      >
+                        {filteredEmployees.length > 0 && filteredEmployees.every((employee) => selectedAgreementIds.includes(employee.id)) ? 'Clear listed' : 'Select listed'}
+                      </button>
+                      {selectedAgreementIds.length > 0 && (
+                        <a className="soft-button compact" href={`/api/reports/agreement?employee_ids=${selectedAgreementIds.join(',')}`}>
+                          <Download size={15} />
+                          Download {selectedAgreementIds.length} agreement{selectedAgreementIds.length === 1 ? '' : 's'}
+                        </a>
+                      )}
                     </span>
                   )}
                 />
@@ -911,6 +927,7 @@ export default function Home() {
                         title={group.label}
                         employees={group.employees}
                         expanded={expandedEmployeeGroups[group.value]}
+                        selectedAgreementIds={selectedAgreementIds}
                         onToggle={() => setExpandedEmployeeGroups((current) => ({
                           ...current,
                           [group.value]: !current[group.value],
@@ -926,6 +943,11 @@ export default function Home() {
                           requestAnimationFrame(() => document.getElementById('employee-onboarding')?.scrollIntoView({ behavior: 'smooth' }));
                         }}
                         onDelete={handleDeleteEmployee}
+                        onAgreementToggle={(employeeId) => setSelectedAgreementIds((current) => (
+                          current.includes(employeeId)
+                            ? current.filter((id) => id !== employeeId)
+                            : [...current, employeeId]
+                        ))}
                       />
                     ))
                   )}
@@ -1290,18 +1312,22 @@ function TeamGroup({
   title,
   employees,
   expanded,
+  selectedAgreementIds,
   onToggle,
   onEdit,
   onDuplicate,
   onDelete,
+  onAgreementToggle,
 }: {
   title: string;
   employees: Employee[];
   expanded: boolean;
+  selectedAgreementIds: number[];
   onToggle: () => void;
   onEdit: (employee: Employee) => void;
   onDuplicate: (employee: Employee) => void;
   onDelete: (id: number) => void;
+  onAgreementToggle: (id: number) => void;
 }) {
   const visibleEmployees = expanded ? employees : employees.slice(0, collapsedEmployeeLimit);
   const hiddenCount = Math.max(0, employees.length - collapsedEmployeeLimit);
@@ -1325,6 +1351,15 @@ function TeamGroup({
         ) : (
           visibleEmployees.map((employee, index) => (
             <article className="person-card" key={employee.id}>
+              <label className="check-shell agreement-select-check" title={`Select agreement for ${employee.name}`}>
+                <input
+                  type="checkbox"
+                  aria-label={`Select agreement for ${employee.name}`}
+                  checked={selectedAgreementIds.includes(employee.id)}
+                  onChange={() => onAgreementToggle(employee.id)}
+                />
+                <span><Check size={12} /></span>
+              </label>
               <Avatar employee={employee} />
               <div className="card-main">
                 <strong>{employee.name}</strong>
@@ -1348,17 +1383,15 @@ function TeamGroup({
                     <span className="mobile-action-label">Duplicate</span>
                   </button>
                 )}
-                {employee.site_name?.toLowerCase().includes('clove cafe') && (
-                  <a
-                    className="soft-button compact mobile-icon-action"
-                    title="Download employment agreement PDF"
-                    aria-label="Download employment agreement PDF"
-                    href={`/api/reports/agreement?employee_id=${employee.id}`}
-                  >
-                    <Download size={14} />
-                    <span className="mobile-action-label">Agreement</span>
-                  </a>
-                )}
+                <a
+                  className="soft-button compact mobile-icon-action"
+                  title="Download employment agreement PDF"
+                  aria-label={`Download employment agreement for ${employee.name}`}
+                  href={`/api/reports/agreement?employee_id=${employee.id}`}
+                >
+                  <Download size={14} />
+                  <span className="mobile-action-label">Agreement</span>
+                </a>
                 <button
                   className="icon-button small"
                   title="Edit employee"

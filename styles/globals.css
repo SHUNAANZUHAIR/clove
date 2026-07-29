@@ -523,7 +523,7 @@ button:disabled {
 .person-card {
   min-height: 52px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 7px 8px;
@@ -1201,6 +1201,11 @@ button:disabled {
   margin-top: 10px;
 }
 
+.agreement-select-check {
+  width: 20px;
+  padding-top: 0;
+}
+
 .salary-site-selection,
 .salary-proration-note {
   padding: 12px 14px;
@@ -1717,7 +1722,7 @@ button:disabled {
 
 
   .person-card {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
     align-items: center;
   }
 
