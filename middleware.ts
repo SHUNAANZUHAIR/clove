@@ -17,7 +17,8 @@ async function validSession(value?: string) {
 
 export async function middleware(request: NextRequest) {
   const signedIn = await validSession(request.cookies.get(cookieName)?.value);
-  if (request.nextUrl.pathname === '/login') return signedIn ? NextResponse.redirect(new URL('/', request.url)) : NextResponse.next();
+  const pathname = request.nextUrl.pathname.replace(/\/$/, '') || '/';
+  if (pathname === '/login') return signedIn ? NextResponse.redirect(new URL('/', request.url)) : NextResponse.next();
   if (!signedIn) {
     if (request.nextUrl.pathname.startsWith('/api/')) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     return NextResponse.redirect(new URL('/login', request.url));
