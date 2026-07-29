@@ -969,6 +969,12 @@ export default function Home() {
                             ? current.filter((id) => id !== employeeId)
                             : [...current, employeeId]
                         ))}
+                        onAgreementGroupToggle={(employeeIds) => setSelectedAgreementIds((current) => {
+                          const allSelected = employeeIds.length > 0 && employeeIds.every((id) => current.includes(id));
+                          return allSelected
+                            ? current.filter((id) => !employeeIds.includes(id))
+                            : Array.from(new Set([...current, ...employeeIds]));
+                        })}
                       />
                     ))
                   )}
@@ -1340,6 +1346,7 @@ function TeamGroup({
   onDelete,
   onTerminate,
   onAgreementToggle,
+  onAgreementGroupToggle,
 }: {
   title: string;
   employees: Employee[];
@@ -1351,9 +1358,12 @@ function TeamGroup({
   onDelete: (id: number) => void;
   onTerminate: (employee: Employee) => void;
   onAgreementToggle: (id: number) => void;
+  onAgreementGroupToggle: (ids: number[]) => void;
 }) {
   const visibleEmployees = expanded ? employees : employees.slice(0, collapsedEmployeeLimit);
   const hiddenCount = Math.max(0, employees.length - collapsedEmployeeLimit);
+  const groupEmployeeIds = employees.map((employee) => employee.id);
+  const groupSelected = groupEmployeeIds.length > 0 && groupEmployeeIds.every((id) => selectedAgreementIds.includes(id));
 
   return (
     <section className="team-group">
@@ -1362,11 +1372,18 @@ function TeamGroup({
           <h3>{title}</h3>
           <span>{employees.length} employee{employees.length === 1 ? '' : 's'}</span>
         </div>
-        {hiddenCount > 0 && (
-          <button className="text-link" type="button" onClick={onToggle}>
-            {expanded ? 'Show less' : `View all ${employees.length}`}
-          </button>
-        )}
+        <div className="team-group-actions">
+          {employees.length > 0 && (
+            <button className="soft-button compact" type="button" onClick={() => onAgreementGroupToggle(groupEmployeeIds)}>
+              {groupSelected ? 'Clear group' : 'Select group'}
+            </button>
+          )}
+          {hiddenCount > 0 && (
+            <button className="text-link" type="button" onClick={onToggle}>
+              {expanded ? 'Show less' : `View all ${employees.length}`}
+            </button>
+          )}
+        </div>
       </div>
       <div className="list-stack">
         {employees.length === 0 ? (

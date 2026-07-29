@@ -1201,6 +1201,14 @@ button:disabled {
   margin-top: 10px;
 }
 
+.team-group-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
 .person-card.is-terminated {
   border-color: #e6b7b4;
   background: #fff7f6;
