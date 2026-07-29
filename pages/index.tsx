@@ -19,7 +19,6 @@ import {
   Pencil,
   Plus,
   Save,
-  Search,
   SlidersHorizontal,
   Trash2,
   UserCheck,
@@ -331,7 +330,6 @@ export default function Home() {
   const [selectedSalaryIds, setSelectedSalaryIds] = useState<number[]>([]);
   const [selectedAgreementIds, setSelectedAgreementIds] = useState<number[]>([]);
   const [teamSelections, setTeamSelections] = useState<Record<number, string>>({});
-  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().slice(0, 10));
   const [attendanceEndDate, setAttendanceEndDate] = useState(new Date().toISOString().slice(0, 10));
@@ -776,18 +774,7 @@ export default function Home() {
     if (selectedSite !== siteId) await fetchSiteTeam(siteId);
   };
 
-  const search = searchTerm.trim().toLowerCase();
-
-  const filteredEmployees = useMemo(() => (
-    employees.filter((employee) => (
-      !search ||
-      employee.name.toLowerCase().includes(search) ||
-      employee.id_number?.toLowerCase().includes(search) ||
-      employee.site_name?.toLowerCase().includes(search) ||
-      employeeTypeLabel(employee.employee_type).toLowerCase().includes(search) ||
-      jobLevelLabel(employee.job_level).toLowerCase().includes(search)
-    ))
-  ), [employees, search]);
+  const filteredEmployees = employees;
 
   const employeeGroupsWithEmployees = useMemo(() => (
     employeeGroups.map((group) => ({
@@ -808,22 +795,15 @@ export default function Home() {
   );
   const editingEmployeeIndex = orderedTeamEmployees.findIndex((employee) => employee.id === profileForm.id);
 
-  const filteredSites = useMemo(() => (
-    sites.filter((site) => (
-      !search ||
-      site.name.toLowerCase().includes(search) ||
-      site.location?.toLowerCase().includes(search)
-    ))
-  ), [sites, search]);
+  const filteredSites = sites;
 
   const filteredSalaryTransactions = useMemo(() => (
     salaryTransactions.filter((transaction) => {
       const monthMatch = salaryFilter.month === 'all' || transaction.month === parseInt(salaryFilter.month);
       const statusMatch = salaryFilter.status === 'all' || transaction.status === salaryFilter.status;
-      const searchMatch = !search || transaction.employee_name.toLowerCase().includes(search);
-      return monthMatch && statusMatch && searchMatch;
+      return monthMatch && statusMatch;
     })
-  ), [salaryTransactions, salaryFilter.month, salaryFilter.status, search]);
+  ), [salaryTransactions, salaryFilter.month, salaryFilter.status]);
 
   const salaryTargets = getSalaryTargets(salaryForm, employees, salarySiteMemberIds);
 
@@ -864,19 +844,6 @@ export default function Home() {
             </button>
           </div>
         </header>
-
-        <div className="search-pill">
-          <Search size={18} />
-          <input
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Search people, payroll, sites..."
-            aria-label="Search"
-          />
-          <button className="ghost-icon" title="Filters" type="button">
-            <SlidersHorizontal size={17} />
-          </button>
-        </div>
 
         <nav className="quick-tabs" aria-label="Main sections">
           <button className={activeTab === 'profile' ? 'is-active' : ''} onClick={() => setActiveTab('profile')} type="button">
@@ -1201,7 +1168,7 @@ export default function Home() {
                 records={attendanceRecords}
                 history={attendanceHistory}
                 sites={sites}
-                search={search}
+                search=""
                 loading={attendanceLoading}
                 saving={attendanceSaving}
                 onDateChange={(date) => {
