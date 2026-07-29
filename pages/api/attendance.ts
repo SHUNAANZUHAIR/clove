@@ -53,20 +53,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === 'POST') {
       const date = normalizeDate(req.body.date);
-      const dates = Array.from(new Set(
+      const dates = Array.from(new Set<string>(
         (Array.isArray(req.body.dates) ? req.body.dates : [date])
-          .map((candidate) => normalizeDate(candidate))
-          .filter((candidate) => Boolean(candidate))
+          .map((candidate: unknown) => normalizeDate(candidate))
+          .filter((candidate: string) => Boolean(candidate))
       ));
       const records = Array.isArray(req.body.records) ? req.body.records : [];
       if (dates.length === 0) return res.status(400).json({ error: 'A valid attendance date is required' });
       if (dates.length > 31) return res.status(400).json({ error: 'Attendance ranges are limited to 31 days' });
       if (records.length === 0) return res.status(400).json({ error: 'No attendance records supplied' });
-      const requestedEmployeeIds = records.map((record) => Number(record.employee_id)).filter(Number.isInteger);
+      const requestedEmployeeIds = records.map((record: { employee_id?: unknown }) => Number(record.employee_id)).filter(Number.isInteger);
       const allowedEmployees = await query('SELECT id FROM employees WHERE ($1 = -1 OR site_id = $1) AND id = ANY($2::int[])', [authenticatedSiteId, requestedEmployeeIds]);
-      const allowedEmployeeIds = new Set(allowedEmployees.rows.map((row) => Number(row.id)));
+      const allowedEmployeeIds = new Set(allowedEmployees.rows.map((row: { id: number }) => Number(row.id)));
 
-      const rows = [];
+      const rows: Array<[number, string, string, string, string | null, string | null, string | null, string | null]> = [];
       for (const record of records) {
         const employeeId = Number(record.employee_id);
         const status = String(record.status || '').toLowerCase();
@@ -159,12 +159,12 @@ async function ensureAttendanceTable() {
   await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS ot_out_time TIME');
 }
 
-function normalizeDate(value) {
+function normalizeDate(value: unknown) {
   const candidate = Array.isArray(value) ? value[0] : value;
   return typeof candidate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(candidate) ? candidate : '';
 }
 
-function normalizeTime(value) {
+function normalizeTime(value: unknown) {
   return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : null;
 }
 
@@ -181,10 +181,10 @@ async function ensureAttendanceHistoryTable() {
   `);
 }
 
-function isFridayDate(value) {
+function isFridayDate(value: string) {
   return new Date(`${value}T00:00:00Z`).getUTCDay() === 5;
 }
 
-function singleValue(value) {
+function singleValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
