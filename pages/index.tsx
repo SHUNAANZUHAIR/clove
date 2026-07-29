@@ -1853,7 +1853,7 @@ function AttendancePanel({
   today.setHours(0, 0, 0, 0);
   const journeyDates = Array.from({ length: visibleDateCount }, (_, index) => {
     const item = new Date(today);
-    item.setDate(today.getDate() + index);
+    item.setDate(today.getDate() - (visibleDateCount - 1 - index));
     return item;
   });
   const targetRecords = attendanceScope === 'site'
@@ -1921,7 +1921,7 @@ function AttendancePanel({
                 return <button key={value} className={date === value ? 'is-selected' : ''} type="button" onClick={() => onDateChange(value)}><small>{item.toLocaleDateString('en-US', { weekday: 'short' })}</small><strong>{item.getDate()}</strong><span>{item.toLocaleDateString('en-US', { month: 'short' })}</span></button>;
               })}
             </div>
-            <button className="text-link attendance-load-more" type="button" onClick={() => setVisibleDateCount((count) => count + 7)}>Load 7 more days</button>
+            <button className="text-link attendance-load-more" type="button" onClick={() => setVisibleDateCount((count) => count + 7)}>Load previous 7 days</button>
             <div className="action-row"><button className="soft-button" type="button" onClick={() => setJourneyStep(1)}><ChevronLeft size={16} /> Back</button><button className="dark-button" type="button" onClick={() => setJourneyStep(3)}>Next <ChevronRight size={16} /></button></div>
           </div>}
           {journeyStep === 3 && <div className="wizard-panel">
