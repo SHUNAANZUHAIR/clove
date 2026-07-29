@@ -208,7 +208,7 @@ function renderDocumentPages(sections: AgreementSection[], verificationUrl?: str
     content += drawText(margin + 14, panelTop + 47, 'This agreement is digitally managed by CloveHR.', 9, false, '0.24 0.34 0.38');
     content += drawText(margin + 14, panelTop + 66, 'Scan the QR code to verify the employee and employment record.', 8.5, false, '0.30 0.38 0.42');
     content += drawText(margin + 14, panelTop + 85, 'The QR verification does not provide access to the private HR database.', 8, false, '0.38 0.42 0.44');
-    if (verificationUrl) content += drawQrCode(createQrMatrix(verificationUrl), pageWidth - margin - 82, panelTop + 7, 1.35);
+    if (verificationUrl) content += drawQrCode(createQrMatrix(verificationUrl), pageWidth - margin - 88, panelTop + 7, 1.8);
     y = panelTop + panelHeight + 12;
   };
   newPage();
