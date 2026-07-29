@@ -1,5 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { randomBytes } from 'crypto';
 import { query } from '../../../lib/db';
+import { createQrMatrix } from '../../../lib/qr';
 
 interface AgreementEmployee {
   id: number; name: string; salary: number; id_number: string | null; join_date: string | null;
@@ -9,6 +11,7 @@ interface AgreementEmployee {
   hours_per_day: number | null; hours_per_week: number | null; allowances_benefits: string | null;
   accommodation_provided: boolean; meals_provided: boolean; transport_provided: boolean; return_airfare_provided: boolean;
   benefit_details: string | null; notice_period: string | null; employer_signatory: string | null;
+  agreement_verification_token: string | null;
 }
 
 interface AgreementSection {
@@ -42,13 +45,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!Number.isInteger(employeeId) || employeeId <= 0) return res.status(400).json({ error: 'Employee is required' });
   try {
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS job_description TEXT');
+    await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS agreement_verification_token VARCHAR(64) UNIQUE');
     const result = await query(`SELECT e.*, e.salary::float AS salary,
       to_char(e.join_date, 'YYYY-MM-DD') AS join_date, to_char(e.fixed_term_end, 'YYYY-MM-DD') AS fixed_term_end,
       e.hours_per_day::float AS hours_per_day, e.hours_per_week::float AS hours_per_week, s.name AS site_name
       FROM employees e LEFT JOIN sites s ON s.id = e.site_id WHERE e.id = $1`, [employeeId]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Employee not found' });
     const employee = result.rows[0] as AgreementEmployee;
-    const pdf = createAgreementPdf(employee);
+    if (!employee.agreement_verification_token) {
+      const candidateToken = randomBytes(16).toString('hex');
+      const tokenResult = await query(`UPDATE employees SET agreement_verification_token = $1
+        WHERE id = $2 AND agreement_verification_token IS NULL
+        RETURNING agreement_verification_token`, [candidateToken, employee.id]);
+      if (tokenResult.rowCount > 0) employee.agreement_verification_token = tokenResult.rows[0].agreement_verification_token;
+      else {
+        const existingToken = await query('SELECT agreement_verification_token FROM employees WHERE id = $1', [employee.id]);
+        employee.agreement_verification_token = existingToken.rows[0]?.agreement_verification_token || candidateToken;
+      }
+    }
+    const verificationUrl = `https://clovehr.vercel.app/verify-agreement/${employee.agreement_verification_token}`;
+    const pdf = createAgreementPdf(employee, verificationUrl);
     const safeName = sanitize(employee.name).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || `employee-${employee.id}`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Employment-Agreement-${safeName}.pdf"`);
@@ -61,7 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-export function createAgreementPdf(employee: AgreementEmployee) {
+export function createAgreementPdf(employee: AgreementEmployee, verificationUrl?: string) {
   const title = value(employee.job_title || jobLevelLabel(employee.job_level));
   const description = value(employee.job_description || defaultDescriptions[employee.job_title || ''], 'Duties will be assigned according to the employee position.');
   const employmentTerm = employee.employment_status === 'fixed_term' ? `[X] Fixed-term ending on ${value(employee.fixed_term_end)}` : '[X] Indefinite/permanent';
@@ -108,10 +124,10 @@ export function createAgreementPdf(employee: AgreementEmployee) {
       },
     },
   ];
-  return renderDocument(sections);
+  return renderDocument(sections, verificationUrl);
 }
 
-function renderDocument(sections: AgreementSection[]) {
+function renderDocument(sections: AgreementSection[], verificationUrl?: string) {
   const pages: string[] = [];
   let content = '';
   let y = 44;
@@ -192,6 +208,11 @@ function renderDocument(sections: AgreementSection[]) {
     if (section.signatures) addSignaturePanel(section.signatures);
   });
   pages.push(content);
+  if (verificationUrl) {
+    pages[0] += drawText(pageWidth - margin - 122, 29, 'SCAN TO', 6.5, true, '0.28 0.35 0.38');
+    pages[0] += drawText(pageWidth - margin - 122, 39, 'VERIFY', 6.5, true, '0.28 0.35 0.38');
+    pages[0] += drawQrCode(createQrMatrix(verificationUrl), pageWidth - margin - 58, 7, 1.15);
+  }
   return buildPdf(pages.map((page, index) => page + drawLine(margin, footerY - 10, pageWidth - margin, footerY - 10, '0.84 0.84 0.84')
     + drawText(margin, footerY + 4, 'Clove Cafe & Bistro - Employment Agreement', 8, false, '0.40 0.40 0.40')
     + drawText(pageWidth - margin - 75, footerY + 4, `Page ${index + 1} of ${pages.length}`, 8, false, '0.40 0.40 0.40')));
@@ -217,6 +238,14 @@ function drawText(x: number, top: number, text: string, size: number, bold = fal
 function drawCentered(text: string, top: number, size: number, bold = false) { return drawText(Math.max(margin, (pageWidth - sanitize(text).length * size * 0.52) / 2), top, text, size, bold); }
 function drawLine(x1: number, top1: number, x2: number, top2: number, color: string) { return `0.6 w ${color} RG ${num(x1)} ${num(pageHeight - top1)} m ${num(x2)} ${num(pageHeight - top2)} l S\n`; }
 function drawRect(x: number, top: number, width: number, height: number, fill: string) { return `${fill} rg ${num(x)} ${num(pageHeight - top - height)} ${num(width)} ${num(height)} re f\n`; }
+function drawQrCode(matrix: boolean[][], x: number, top: number, cell: number) {
+  const quiet = 4;
+  let output = drawRect(x, top, (matrix.length + quiet * 2) * cell, (matrix.length + quiet * 2) * cell, '1 1 1');
+  matrix.forEach((row, rowIndex) => row.forEach((dark, columnIndex) => {
+    if (dark) output += drawRect(x + (columnIndex + quiet) * cell, top + (rowIndex + quiet) * cell, cell, cell, '0 0 0');
+  }));
+  return output;
+}
 function wrapText(text: string, fontSize: number, width: number) { const maxChars = Math.max(20, Math.floor(width / (fontSize * 0.5))); const lines: string[] = []; let line = ''; sanitize(text).split(' ').forEach((word) => { const candidate = line ? `${line} ${word}` : word; if (candidate.length > maxChars && line) { lines.push(line); line = word; } else line = candidate; }); if (line) lines.push(line); return lines; }
 function value(input: unknown, fallback = '____________________________') { return sanitize(String(input || fallback)); }
 function money(input: number) { return Number(input || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
