@@ -715,6 +715,14 @@ button:disabled {
 .attendance-success { justify-items: center; padding: 24px 12px; text-align: center; }
 .attendance-success h3,
 .attendance-success p { margin: 0; }
+.attendance-confirm-list { display: grid; gap: 6px; max-height: 260px; overflow-y: auto; padding: 9px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-soft); }
+.attendance-confirm-title { display: flex; align-items: center; gap: 7px; padding: 3px 2px 8px; color: #2f855a; }
+.attendance-confirm-title span { margin-left: auto; color: var(--muted); font-size: 0.7rem; }
+.attendance-confirm-list label { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); color: var(--muted); }
+.attendance-confirm-list label.is-included { border-color: #9bd2b1; color: #2f855a; background: #eef9f2; }
+.attendance-confirm-list label input { width: 16px; height: 16px; accent-color: #2f855a; }
+.attendance-confirm-list label span { min-width: 0; overflow: hidden; color: var(--ink); font-size: 0.78rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.attendance-confirm-list label small { color: var(--muted); font-size: 0.68rem; }
 
 
 .give-salary-button {

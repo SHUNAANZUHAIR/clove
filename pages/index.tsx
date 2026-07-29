@@ -1824,6 +1824,7 @@ function AttendancePanel({
   const [attendanceScope, setAttendanceScope] = useState<'employee' | 'site'>('site');
   const [journeyEmployeeId, setJourneyEmployeeId] = useState('');
   const [journeySiteId, setJourneySiteId] = useState('');
+  const [journeyIncludedIds, setJourneyIncludedIds] = useState<number[] | null>(null);
   const [visibleDateCount, setVisibleDateCount] = useState(7);
   const [journeyInTime, setJourneyInTime] = useState('09:00');
   const [journeyOutTime, setJourneyOutTime] = useState('17:00');
@@ -1856,13 +1857,16 @@ function AttendancePanel({
     item.setDate(today.getDate() - (visibleDateCount - 1 - index));
     return item;
   });
-  const targetRecords = attendanceScope === 'site'
+  const scopeRecords = attendanceScope === 'site'
     ? records.filter((record) => record.site_id?.toString() === journeySiteId)
     : records.filter((record) => record.employee_id.toString() === journeyEmployeeId);
+  const targetRecords = journeyIncludedIds === null
+    ? scopeRecords
+    : scopeRecords.filter((record) => journeyIncludedIds.includes(record.employee_id));
   const targetLabel = attendanceScope === 'site'
     ? sites.find((site) => site.id.toString() === journeySiteId)?.name || ''
     : records.find((record) => record.employee_id.toString() === journeyEmployeeId)?.employee_name || '';
-  const hasTarget = targetRecords.length > 0;
+  const hasTarget = scopeRecords.length > 0;
 
   const submitJourneyAttendance = async () => {
     const fridaySelection = isFridayDate(date);
@@ -1904,15 +1908,15 @@ function AttendancePanel({
           </div>
           {journeyStep === 1 && <div className="wizard-panel">
             <div className="form-grid compact-grid">
-              <label><span>Submit attendance by</span><select value={attendanceScope} onChange={(event) => setAttendanceScope(event.target.value as 'employee' | 'site')}><option value="site">Work site</option><option value="employee">Employee</option></select></label>
+              <label><span>Submit attendance by</span><select value={attendanceScope} onChange={(event) => { setAttendanceScope(event.target.value as 'employee' | 'site'); setJourneyIncludedIds(null); }}><option value="site">Work site</option><option value="employee">Employee</option></select></label>
               {attendanceScope === 'site' ? (
-                <label><span>Work site</span><select value={journeySiteId} onChange={(event) => setJourneySiteId(event.target.value)}><option value="">Select work site</option>{sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}</select></label>
+                <label><span>Work site</span><select value={journeySiteId} onChange={(event) => { setJourneySiteId(event.target.value); setJourneyIncludedIds(null); }}><option value="">Select work site</option>{sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}</select></label>
               ) : (
-                <label><span>Employee</span><select value={journeyEmployeeId} onChange={(event) => setJourneyEmployeeId(event.target.value)}><option value="">Select employee</option>{records.map((record) => <option key={record.employee_id} value={record.employee_id}>{record.employee_name}</option>)}</select></label>
+                <label><span>Employee</span><select value={journeyEmployeeId} onChange={(event) => { setJourneyEmployeeId(event.target.value); setJourneyIncludedIds(null); }}><option value="">Select employee</option>{records.map((record) => <option key={record.employee_id} value={record.employee_id}>{record.employee_name}</option>)}</select></label>
               )}
             </div>
             {hasTarget && <p className="journey-selection-note">{targetRecords.length} employee{targetRecords.length === 1 ? '' : 's'} selected</p>}
-            <div className="action-row"><button className="dark-button" type="button" disabled={!hasTarget} onClick={() => setJourneyStep(2)}>Next <ChevronRight size={16} /></button></div>
+            <div className="action-row"><button className="dark-button" type="button" disabled={!hasTarget} onClick={() => { setJourneyIncludedIds(scopeRecords.map((record) => record.employee_id)); setJourneyStep(2); }}>Next <ChevronRight size={16} /></button></div>
           </div>}
           {journeyStep === 2 && <div className="wizard-panel">
             <div className="attendance-date-strip" aria-label="Select attendance date">
@@ -1926,7 +1930,14 @@ function AttendancePanel({
           </div>}
           {journeyStep === 3 && <div className="wizard-panel">
             {isFridayDate(date) ? <p className="friday-attendance-note">Friday is an off day. No in or out time will be recorded.</p> : <div className="form-grid compact-grid"><label><span>In time</span><input type="time" value={journeyInTime} onChange={(event) => setJourneyInTime(event.target.value)} /></label><label><span>Out time</span><input type="time" value={journeyOutTime} onChange={(event) => setJourneyOutTime(event.target.value)} /></label></div>}
-            <div className="action-row"><button className="soft-button" type="button" onClick={() => setJourneyStep(2)}><ChevronLeft size={16} /> Back</button><button className="dark-button" type="button" disabled={saving || loading || !hasTarget} onClick={submitJourneyAttendance}><Save size={16} /> {saving ? 'Submitting...' : 'Submit attendance'}</button></div>
+            <div className="attendance-confirm-list">
+              <div className="attendance-confirm-title"><UserCheck size={18} /><strong>{targetRecords.length} attending</strong><span>Untick anyone to remove</span></div>
+              {scopeRecords.map((record) => {
+                const included = journeyIncludedIds?.includes(record.employee_id) ?? true;
+                return <label className={included ? 'is-included' : ''} key={record.employee_id}><input type="checkbox" checked={included} onChange={(event) => setJourneyIncludedIds((current) => event.target.checked ? Array.from(new Set([...(current || []), record.employee_id])) : (current || scopeRecords.map((item) => item.employee_id)).filter((id) => id !== record.employee_id))} /><UserCheck size={16} /><span>{record.employee_name}</span><small>{record.site_name || 'Unassigned'}</small></label>;
+              })}
+            </div>
+            <div className="action-row"><button className="soft-button" type="button" onClick={() => setJourneyStep(2)}><ChevronLeft size={16} /> Back</button><button className="dark-button" type="button" disabled={saving || loading || targetRecords.length === 0} onClick={submitJourneyAttendance}><Save size={16} /> {saving ? 'Submitting...' : 'Submit attendance'}</button></div>
           </div>}
           {journeyStep === 4 && <div className="wizard-panel attendance-success"><UserCheck size={30} /><h3>Attendance recorded</h3><p>{attendanceConfirmation}</p><button className="dark-button" type="button" onClick={() => { setJourneyOpen(false); setJourneyStep(1); }}>Done</button></div>}
         </section>
