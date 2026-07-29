@@ -729,6 +729,9 @@ button:disabled {
 .attendance-confirm-list label input { width: 16px; height: 16px; accent-color: #2f855a; }
 .attendance-confirm-list label span { min-width: 0; overflow: hidden; color: var(--ink); font-size: 0.78rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .attendance-confirm-list label small { color: var(--muted); font-size: 0.68rem; }
+.attendance-time-grid,
+.attendance-time-grid label { min-width: 0; }
+.attendance-time-grid input[type="time"] { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
 
 
 .give-salary-button {
@@ -2093,6 +2096,10 @@ button:disabled {
   .quick-view-backdrop { padding: 10px; }
   .employee-quick-view { max-height: 88vh; border-radius: 14px; }
   .quick-view-details { grid-template-columns: 1fr; }
+  .attendance-time-grid { grid-template-columns: 1fr; gap: 12px; }
+  .attendance-time-grid input[type="time"] { min-height: 48px; padding: 10px 12px; font-size: 1rem; }
+  .attendance-journey .action-row { flex-wrap: wrap; }
+  .attendance-journey .action-row > button { min-height: 44px; flex: 1 1 140px; }
 
   .app-shell {
     padding: 12px;

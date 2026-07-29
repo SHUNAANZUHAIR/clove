@@ -1931,7 +1931,7 @@ function AttendancePanel({
             <div className="action-row"><button className="soft-button" type="button" onClick={() => setJourneyStep(1)}><ChevronLeft size={16} /> Back</button><button className="dark-button" type="button" onClick={() => setJourneyStep(3)}>Next <ChevronRight size={16} /></button></div>
           </div>}
           {journeyStep === 3 && <div className="wizard-panel">
-            {isFridayDate(date) ? <p className="friday-attendance-note">Friday is an off day. No in or out time will be recorded.</p> : <div className="form-grid compact-grid"><label><span>In time</span><input type="time" value={journeyInTime} onChange={(event) => setJourneyInTime(event.target.value)} /></label><label><span>Out time</span><input type="time" value={journeyOutTime} onChange={(event) => setJourneyOutTime(event.target.value)} /></label></div>}
+            {isFridayDate(date) ? <p className="friday-attendance-note">Friday is an off day. No in or out time will be recorded.</p> : <div className="form-grid compact-grid attendance-time-grid"><label><span>In time</span><input aria-label="Attendance in time" type="time" value={journeyInTime} onChange={(event) => setJourneyInTime(event.target.value)} /></label><label><span>Out time</span><input aria-label="Attendance out time" type="time" value={journeyOutTime} onChange={(event) => setJourneyOutTime(event.target.value)} /></label></div>}
             <div className="attendance-confirm-list">
               <div className="attendance-confirm-title"><UserCheck size={18} /><strong>{targetRecords.length} attending</strong><span>Untick anyone to remove</span></div>
               {scopeRecords.map((record) => {
