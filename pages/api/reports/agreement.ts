@@ -139,11 +139,18 @@ function renderDocument(sections: AgreementSection[], verificationUrl?: string) 
     y = 78;
   };
   const ensureSpace = (height: number) => { if (y + height > footerY - 34) newPage(); };
-  const addWrapped = (text: string, fontSize: number, bold = false, gapAfter = 8) => {
+  const addWrapped = (
+    text: string,
+    fontSize: number,
+    bold = false,
+    gapAfter = 8,
+    textX = margin,
+    textWidth = contentWidth,
+  ) => {
     for (const paragraph of text.split('\n')) {
       if (!paragraph) { y += fontSize * 0.75; continue; }
-      for (const line of wrapText(paragraph, fontSize, contentWidth)) {
-        ensureSpace(fontSize + 4); content += drawText(margin, y, line, fontSize, bold); y += fontSize + 3;
+      for (const line of wrapText(paragraph, fontSize, textWidth)) {
+        ensureSpace(fontSize + 4); content += drawText(textX, y, line, fontSize, bold); y += fontSize + 3;
       }
     }
     y += gapAfter;
@@ -180,10 +187,10 @@ function renderDocument(sections: AgreementSection[], verificationUrl?: string) 
     content += drawRect(margin, y, contentWidth, 23, '0.92 0.95 0.97');
     content += drawLine(margin, y, margin, y + 23, '0.18 0.42 0.55');
     content += drawText(margin + 9, y + 15, heading, 10.2, true, '0.10 0.25 0.34');
-    y += 30;
+    y += 32;
   };
   const addSignaturePanel = (signatures: { employerName: string; employeeName: string }) => {
-    ensureSpace(162);
+    ensureSpace(150);
     const panelTop = y;
     content += drawRect(margin, panelTop, contentWidth, 145, '0.985 0.985 0.98');
     content += drawLine(margin, panelTop, pageWidth - margin, panelTop, '0.72 0.72 0.70');
@@ -204,7 +211,17 @@ function renderDocument(sections: AgreementSection[], verificationUrl?: string) 
   sections.forEach((section) => {
     if (section.heading) addSectionHeading(section.heading);
     if (section.details) addDetailsTable(section.details);
-    if (section.text) addWrapped(section.text, 9.5, false, 10);
+    if (section.text) {
+      const isClause = Boolean(section.heading);
+      addWrapped(
+        section.text,
+        9.5,
+        false,
+        10,
+        isClause ? margin + 9 : margin,
+        isClause ? contentWidth - 18 : contentWidth,
+      );
+    }
     if (section.signatures) addSignaturePanel(section.signatures);
   });
   pages.push(content);
