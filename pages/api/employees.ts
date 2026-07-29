@@ -3,7 +3,6 @@ import { query } from '../../lib/db';
 
 const maxPhotoPayloadLength = 2_500_000;
 const allowedPhotoDataUrl = /^data:image\/(?:jpeg|jpg|png|webp);base64,/;
-const employeeTypes = new Set(['local', 'clove_expats', 'full_time_expats']);
 const jobLevels = new Set(['labour', 'mason', 'carpenter', 'supervisor']);
 
 const agreementColumns = [
@@ -128,7 +127,7 @@ function validatePhoto(photo: unknown) {
 }
 
 function normalizeEmployeeType(value: unknown) {
-  return typeof value === 'string' && employeeTypes.has(value) ? value : 'local';
+  return typeof value === 'string' && /^[a-z0-9_]{1,30}$/.test(value) ? value : 'local';
 }
 
 function normalizeJobLevel(value: unknown) {

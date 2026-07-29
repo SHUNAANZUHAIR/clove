@@ -975,6 +975,17 @@ button:disabled {
   grid-column: span 2;
 }
 
+.form-grid .inline-form-actions {
+  display: flex;
+  gap: 12px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.form-grid .inline-form-actions .text-link {
+  font-size: 0.72rem;
+}
+
 
 .employee-multi-field.wide {
   grid-column: span 2;

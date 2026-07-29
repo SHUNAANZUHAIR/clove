@@ -119,10 +119,10 @@ interface AttendanceHistoryEntry {
 
 type Tab = 'profile' | 'salary' | 'attendance' | 'site';
 type SalaryScope = 'employee' | 'site';
-type EmployeeType = 'local' | 'clove_expats' | 'full_time_expats';
+type EmployeeType = string;
 type JobLevel = 'labour' | 'mason' | 'carpenter' | 'supervisor';
 
-const employeeGroups: Array<{ value: EmployeeType; label: string }> = [
+const defaultEmployeeGroups: Array<{ value: EmployeeType; label: string }> = [
   { value: 'local', label: 'Local Employee' },
   { value: 'clove_expats', label: 'Clove Expats' },
   { value: 'full_time_expats', label: 'Full Time Expats' },
@@ -322,6 +322,7 @@ const freshSalaryForm = () => ({
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employeeGroups, setEmployeeGroups] = useState(defaultEmployeeGroups);
   const [sites, setSites] = useState<Site[]>([]);
   const [salaryTransactions, setSalaryTransactions] = useState<SalaryTransaction[]>([]);
   const [siteTeam, setSiteTeam] = useState<SiteTeam[]>([]);
@@ -389,7 +390,7 @@ export default function Home() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      await Promise.all([fetchEmployees(), fetchSites(), fetchSalaryTransactions()]);
+      await Promise.all([fetchEmployees(), fetchEmployeeGroups(), fetchSites(), fetchSalaryTransactions()]);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -440,6 +441,36 @@ export default function Home() {
     } finally {
       setAttendanceLoading(false);
     }
+  };
+
+  const fetchEmployeeGroups = async () => {
+    const res = await fetch('/api/employee-groups');
+    if (res.ok) setEmployeeGroups(await res.json());
+  };
+
+  const addEmployeeGroup = async () => {
+    const label = prompt('New team group name');
+    if (!label?.trim()) return;
+    const res = await fetch('/api/employee-groups', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ label }),
+    });
+    if (!res.ok) return alert('Could not add the team group.');
+    const group = await res.json();
+    setEmployeeGroups((current) => [...current, group]);
+    setProfileForm((current) => ({ ...current, employee_type: group.value }));
+  };
+
+  const renameEmployeeGroup = async (value: string) => {
+    const group = employeeGroups.find((item) => item.value === value);
+    if (!group) return;
+    const label = prompt('Rename team group', group.label);
+    if (!label?.trim() || label.trim() === group.label) return;
+    const res = await fetch('/api/employee-groups', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value, label }),
+    });
+    if (!res.ok) return alert('Could not rename the team group.');
+    const updated = await res.json();
+    setEmployeeGroups((current) => current.map((item) => item.value === value ? updated : item));
   };
 
   const fetchAttendanceHistory = async () => {
@@ -950,6 +981,7 @@ export default function Home() {
 
                 <EmployeeForm
                   employeesSites={sites}
+                  employeeGroups={employeeGroups}
                   form={profileForm}
                   saveStatus={employeeSaveStatus}
                   previousEmployee={editingEmployeeIndex > 0 ? orderedTeamEmployees[editingEmployeeIndex - 1] : null}
@@ -970,6 +1002,8 @@ export default function Home() {
                     setProfileForm((current) => ({ ...current, photo: '' }));
                   }}
                   onTerminate={handleEmployeeTermination}
+                  onAddGroup={addEmployeeGroup}
+                  onRenameGroup={renameEmployeeGroup}
                   onCancel={() => {
                     setEmployeeSaveStatus('');
                     setProfileForm(emptyProfileForm);
@@ -1428,6 +1462,7 @@ function TeamGroup({
 
 function EmployeeForm({
   employeesSites,
+  employeeGroups,
   form,
   saveStatus,
   previousEmployee,
@@ -1439,9 +1474,12 @@ function EmployeeForm({
   onPhotoChange,
   onPhotoClear,
   onTerminate,
+  onAddGroup,
+  onRenameGroup,
   onCancel,
 }: {
   employeesSites: Site[];
+  employeeGroups: Array<{ value: EmployeeType; label: string }>;
   form: typeof emptyProfileForm;
   saveStatus: string;
   previousEmployee: Employee | null;
@@ -1453,6 +1491,8 @@ function EmployeeForm({
   onPhotoChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onPhotoClear: () => void;
   onTerminate: (employee: Employee) => void;
+  onAddGroup: () => void;
+  onRenameGroup: (value: string) => void;
   onCancel: () => void;
 }) {
   const selectedWorkSite = employeesSites.find((site) => site.id.toString() === form.site_id);
@@ -1524,6 +1564,10 @@ function EmployeeForm({
                   <option key={group.value} value={group.value}>{group.label}</option>
                 ))}
               </select>
+              <span className="inline-form-actions">
+                <button className="text-link" type="button" onClick={onAddGroup}>+ Add group</button>
+                <button className="text-link" type="button" onClick={() => onRenameGroup(form.employee_type)}>Rename group</button>
+              </span>
             </label>
             <label>
               <span>Job level</span>
@@ -2312,7 +2356,8 @@ function paymentLabel(medium: string) {
 }
 
 function employeeTypeLabel(value?: string | null) {
-  return employeeGroups.find((group) => group.value === value)?.label || 'Local Employee';
+  return defaultEmployeeGroups.find((group) => group.value === value)?.label
+    || String(value || 'local').split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
 }
 
 function jobLevelLabel(value?: string | null) {

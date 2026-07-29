@@ -104,6 +104,17 @@ CREATE INDEX IF NOT EXISTS idx_salary_employee ON salary_transactions(employee_i
 CREATE INDEX IF NOT EXISTS idx_salary_month_year ON salary_transactions(month, year);
 CREATE INDEX IF NOT EXISTS idx_employee_site ON employees(site_id);
 CREATE INDEX IF NOT EXISTS idx_employee_type ON employees(employee_type);
+
+CREATE TABLE IF NOT EXISTS employee_groups (
+    value VARCHAR(30) PRIMARY KEY,
+    label VARCHAR(80) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+INSERT INTO employee_groups (value, label) VALUES
+    ('local', 'Local Employee'),
+    ('clove_expats', 'Clove Expats'),
+    ('full_time_expats', 'Full Time Expats')
+ON CONFLICT (value) DO NOTHING;
 CREATE INDEX IF NOT EXISTS idx_employee_job_level ON employees(job_level);
 CREATE INDEX IF NOT EXISTS idx_site_team_site ON site_team(site_id);
 CREATE INDEX IF NOT EXISTS idx_site_team_employee ON site_team(employee_id);
