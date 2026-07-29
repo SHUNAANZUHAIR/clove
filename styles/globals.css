@@ -189,6 +189,22 @@ button:disabled {
   flex-shrink: 0;
 }
 
+.employee-count-chip {
+  min-width: 56px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  background: var(--panel);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 
 .icon-button,
 .ghost-icon {

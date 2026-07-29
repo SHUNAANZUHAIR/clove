@@ -25,7 +25,6 @@ import {
   UserCheck,
   UserX,
   UsersRound,
-  WalletCards,
   X,
 } from 'lucide-react';
 
@@ -826,12 +825,11 @@ export default function Home() {
     })
   ), [salaryTransactions, salaryFilter.month, salaryFilter.status, search]);
 
-  const totalPayroll = salaryTransactions.reduce((sum, transaction) => sum + Number(transaction.net_salary), 0);
   const salaryTargets = getSalaryTargets(salaryForm, employees, salarySiteMemberIds);
 
   const title = activeTab === 'profile' ? 'Welcome, Clove' : activeTab === 'salary' ? 'Payroll' : activeTab === 'attendance' ? 'Attendance' : 'Work Sites';
   const subtitle = activeTab === 'profile'
-    ? `${employees.length} employees across ${sites.length} sites`
+    ? `${sites.length} work sites`
     : activeTab === 'salary'
       ? `${filteredSalaryTransactions.length} salary records`
       : activeTab === 'attendance'
@@ -854,6 +852,10 @@ export default function Home() {
             <span>{subtitle}</span>
           </div>
           <div className="header-actions">
+            <span className="employee-count-chip" title="Total employees">
+              <UsersRound size={16} />
+              {employees.length}
+            </span>
             <button className="icon-button" title="Notifications" type="button">
               <Bell size={18} />
             </button>
@@ -901,11 +903,6 @@ export default function Home() {
           <div className="content-stack">
             {activeTab === 'profile' && (
               <>
-                <section className="metric-grid" aria-label="Team summary">
-                  <SummaryCard label="Employees" value={employees.length.toString()} icon={<UsersRound size={18} />} />
-                  <SummaryCard label="Monthly payroll" value={formatCurrency(totalPayroll)} icon={<WalletCards size={18} />} />
-                </section>
-
                 <SectionHeader
                   title="Team"
                   action={(
