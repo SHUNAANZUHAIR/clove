@@ -105,6 +105,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ success: true, saved: rows.length, dates: dates.length, history: history.rows[0] });
     }
 
+    if (req.method === 'DELETE') {
+      const id = Number(singleValue(req.query.id));
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'A valid history id is required' });
+      const result = await query('DELETE FROM attendance_save_history WHERE id = $1 RETURNING id', [id]);
+      return result.rowCount
+        ? res.status(200).json({ success: true })
+        : res.status(404).json({ error: 'Attendance history record not found' });
+    }
+
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
     console.error('Attendance API error:', error);

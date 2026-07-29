@@ -480,6 +480,13 @@ export default function Home() {
     if (res.ok) setAttendanceHistory(await res.json());
   };
 
+  const deleteAttendanceHistory = async (entry: AttendanceHistoryEntry) => {
+    if (!confirm(`Delete the saved attendance history for ${entry.start_date === entry.end_date ? entry.start_date : `${entry.start_date} to ${entry.end_date}`}?`)) return;
+    const res = await fetch(`/api/attendance?id=${entry.id}`, { method: 'DELETE' });
+    if (!res.ok) return alert('Could not delete this attendance history record.');
+    await fetchAttendanceHistory();
+  };
+
   const saveAttendance = async (recordsToSave: AttendanceRecord[], endDate?: string, siteId?: string) => {
     setAttendanceSaving(true);
     try {
@@ -1224,6 +1231,7 @@ export default function Home() {
                 onEndDateChange={setAttendanceEndDate}
                 onChange={setAttendanceRecords}
                 onSave={saveAttendance}
+                onDeleteHistory={deleteAttendanceHistory}
               />
             )}
 
@@ -1805,6 +1813,7 @@ function AttendancePanel({
   onEndDateChange,
   onChange,
   onSave,
+  onDeleteHistory,
 }: {
   date: string;
   endDate: string;
@@ -1818,6 +1827,7 @@ function AttendancePanel({
   onEndDateChange: (date: string) => void;
   onChange: (records: AttendanceRecord[]) => void;
   onSave: (records: AttendanceRecord[], endDate?: string, siteId?: string) => void;
+  onDeleteHistory: (entry: AttendanceHistoryEntry) => void;
 }) {
   const [journeyOpen, setJourneyOpen] = useState(false);
   const [journeyStep, setJourneyStep] = useState(1);
@@ -2085,7 +2095,7 @@ function AttendancePanel({
               <th>Date range</th>
               <th>Work site</th>
               <th>Employees</th>
-              <th aria-label="Download" />
+              <th aria-label="Actions" />
             </tr>
           </thead>
           <tbody>
@@ -2098,14 +2108,10 @@ function AttendancePanel({
                 <td>{entry.site_name}</td>
                 <td>{entry.employee_count}</td>
                 <td>
-                  <a
-                    className="icon-button small"
-                    title="Download saved attendance PDF"
-                    aria-label={`Download attendance history ${entry.id}`}
-                    href={`/api/reports/attendance?date=${entry.start_date}&end_date=${entry.end_date}&site_id=${entry.site_id || 'all'}`}
-                  >
-                    <Download size={15} />
-                  </a>
+                  <span className="row-actions">
+                    <a className="icon-button small" title="Download saved attendance PDF" aria-label={`Download attendance history ${entry.id}`} href={`/api/reports/attendance?date=${entry.start_date}&end_date=${entry.end_date}&site_id=${entry.site_id || 'all'}`}><Download size={15} /></a>
+                    <button className="icon-button small danger" title="Delete attendance history" aria-label={`Delete attendance history ${entry.id}`} type="button" onClick={() => onDeleteHistory(entry)}><Trash2 size={15} /></button>
+                  </span>
                 </td>
               </tr>
             ))}
