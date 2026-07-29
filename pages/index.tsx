@@ -819,6 +819,18 @@ export default function Home() {
     if (selectedSite !== siteId) await fetchSiteTeam(siteId);
   };
 
+  const handleRenameSite = async (site: Site) => {
+    const name = prompt('Enter the new site name', site.name)?.trim();
+    if (!name || name === site.name) return;
+    const res = await fetch('/api/sites', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: site.id, name, location: site.location || '' }),
+    });
+    if (!res.ok) return alert('Could not rename this work site.');
+    await Promise.all([fetchSites(), fetchEmployees()]);
+  };
+
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     window.location.assign('/login');
@@ -1269,6 +1281,9 @@ export default function Home() {
                               </span>
                             </button>
                             <div className="row-actions">
+                              <button className="icon-button small" title="Rename site" aria-label={`Rename ${site.name}`} type="button" onClick={() => handleRenameSite(site)}>
+                                <Pencil size={15} />
+                              </button>
                               <button
                                 className="icon-button small"
                                 title="View team"
