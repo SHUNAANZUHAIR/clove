@@ -90,6 +90,8 @@ CREATE TABLE IF NOT EXISTS attendance (
     status VARCHAR(20) NOT NULL DEFAULT 'present',
     in_time TIME,
     out_time TIME,
+    ot_in_time TIME,
+    ot_out_time TIME,
     notes TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -97,6 +99,8 @@ CREATE TABLE IF NOT EXISTS attendance (
 );
 ALTER TABLE attendance ADD COLUMN IF NOT EXISTS in_time TIME;
 ALTER TABLE attendance ADD COLUMN IF NOT EXISTS out_time TIME;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS ot_in_time TIME;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS ot_out_time TIME;
 
 
 -- Create indexes for better performance
