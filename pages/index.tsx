@@ -326,6 +326,7 @@ export default function Home() {
   const [attendanceSaving, setAttendanceSaving] = useState(false);
 
   const [profileForm, setProfileForm] = useState(emptyProfileForm);
+  const [employeeSaveStatus, setEmployeeSaveStatus] = useState('');
   const [salaryForm, setSalaryForm] = useState(freshSalaryForm);
   const [salaryFilter, setSalaryFilter] = useState({ month: 'all', status: 'all' });
   const [salaryJourneyOpen, setSalaryJourneyOpen] = useState(false);
@@ -464,7 +465,8 @@ export default function Home() {
   const handleSaveEmployee = async (event: FormEvent) => {
     event.preventDefault();
 
-    const method = profileForm.id ? 'PUT' : 'POST';
+    const isEditingEmployee = profileForm.id > 0;
+    const method = isEditingEmployee ? 'PUT' : 'POST';
     const salary = Number(profileForm.salary);
 
     const res = await fetch('/api/employees', {
@@ -483,7 +485,12 @@ export default function Home() {
 
     if (res.ok) {
       await fetchEmployees();
-      setProfileForm(emptyProfileForm);
+      if (isEditingEmployee) {
+        setEmployeeSaveStatus('Saved');
+      } else {
+        setProfileForm(emptyProfileForm);
+        setEmployeeSaveStatus('');
+      }
     } else {
       const data = await res.json().catch(() => null);
       alert(data?.error || 'Could not save employee.');
@@ -675,6 +682,7 @@ export default function Home() {
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    setEmployeeSaveStatus('');
 
     if (!file.type.startsWith('image/')) {
       alert('Choose an image file for the profile photo.');
@@ -883,10 +891,12 @@ export default function Home() {
                           [group.value]: !current[group.value],
                         }))}
                         onEdit={(employee) => {
+                          setEmployeeSaveStatus('');
                           setProfileForm(employeeToProfileForm(employee));
                           requestAnimationFrame(() => document.getElementById('employee-onboarding')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
                         }}
                         onDuplicate={(employee) => {
+                          setEmployeeSaveStatus('');
                           setProfileForm(employeeToProfileForm(employee, true));
                           requestAnimationFrame(() => document.getElementById('employee-onboarding')?.scrollIntoView({ behavior: 'smooth' }));
                         }}
@@ -899,14 +909,27 @@ export default function Home() {
                 <EmployeeForm
                   employeesSites={sites}
                   form={profileForm}
+                  saveStatus={employeeSaveStatus}
                   previousEmployee={editingEmployeeIndex > 0 ? orderedTeamEmployees[editingEmployeeIndex - 1] : null}
                   nextEmployee={editingEmployeeIndex >= 0 && editingEmployeeIndex < orderedTeamEmployees.length - 1 ? orderedTeamEmployees[editingEmployeeIndex + 1] : null}
                   onSubmit={handleSaveEmployee}
-                  onChange={setProfileForm}
-                  onNavigate={(employee) => setProfileForm(employeeToProfileForm(employee))}
+                  onChange={(form) => {
+                    setEmployeeSaveStatus('');
+                    setProfileForm(form);
+                  }}
+                  onNavigate={(employee) => {
+                    setEmployeeSaveStatus('');
+                    setProfileForm(employeeToProfileForm(employee));
+                  }}
                   onPhotoChange={handlePhotoChange}
-                  onPhotoClear={() => setProfileForm((current) => ({ ...current, photo: '' }))}
-                  onCancel={() => setProfileForm(emptyProfileForm)}
+                  onPhotoClear={() => {
+                    setEmployeeSaveStatus('');
+                    setProfileForm((current) => ({ ...current, photo: '' }));
+                  }}
+                  onCancel={() => {
+                    setEmployeeSaveStatus('');
+                    setProfileForm(emptyProfileForm);
+                  }}
                 />
               </>
             )}
@@ -1328,6 +1351,7 @@ function TeamGroup({
 function EmployeeForm({
   employeesSites,
   form,
+  saveStatus,
   previousEmployee,
   nextEmployee,
   onSubmit,
@@ -1339,6 +1363,7 @@ function EmployeeForm({
 }: {
   employeesSites: Site[];
   form: typeof emptyProfileForm;
+  saveStatus: string;
   previousEmployee: Employee | null;
   nextEmployee: Employee | null;
   onSubmit: (event: FormEvent) => void;
@@ -1549,6 +1574,7 @@ function EmployeeForm({
             </label>
           </div>
           <div className="action-row">
+            {saveStatus && <span className="save-confirmation" role="status">{saveStatus}</span>}
             {form.id > 0 && (
               <button className="soft-button" type="button" onClick={onCancel}>
                 <X size={16} />

@@ -1201,6 +1201,13 @@ button:disabled {
   margin-top: 10px;
 }
 
+.save-confirmation {
+  margin-right: auto;
+  color: #237a43;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 
 .filter-row {
   display: flex;
