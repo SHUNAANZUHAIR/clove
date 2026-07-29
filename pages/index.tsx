@@ -2,7 +2,6 @@
 import Head from 'next/head';
 import { Fragment, type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
 import {
-  Bell,
   BriefcaseBusiness,
   CalendarDays,
   ClipboardCheck,
@@ -881,9 +880,6 @@ export default function Home() {
               <UsersRound size={16} />
               {employees.length}
             </span>
-            <button className="icon-button" title="Notifications" type="button">
-              <Bell size={18} />
-            </button>
             <button
               className={`icon-button${activeTab === 'site' ? ' is-active' : ''}`}
               title="Sites"
@@ -892,9 +888,6 @@ export default function Home() {
               onClick={() => setActiveTab('site')}
             >
               <MapPin size={18} />
-            </button>
-            <button className="icon-button" title="Calendar" type="button">
-              <CalendarDays size={18} />
             </button>
             <button className="icon-button danger" title="Log out" aria-label="Log out" type="button" onClick={handleLogout}>
               <LogOut size={18} />
