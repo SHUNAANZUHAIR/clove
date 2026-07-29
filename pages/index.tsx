@@ -14,6 +14,7 @@ import {
   CreditCard,
   Copy,
   Download,
+  LogOut,
   MapPin,
   MoreHorizontal,
   Pencil,
@@ -813,6 +814,11 @@ export default function Home() {
     if (selectedSite !== siteId) await fetchSiteTeam(siteId);
   };
 
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.assign('/login');
+  };
+
   const filteredEmployees = employees;
 
   const employeeGroupsWithEmployees = useMemo(() => (
@@ -889,6 +895,9 @@ export default function Home() {
             </button>
             <button className="icon-button" title="Calendar" type="button">
               <CalendarDays size={18} />
+            </button>
+            <button className="icon-button danger" title="Log out" aria-label="Log out" type="button" onClick={handleLogout}>
+              <LogOut size={18} />
             </button>
           </div>
         </header>
