@@ -67,7 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         to_char(e.terminated_at, 'YYYY-MM-DD') AS terminated_at,
         to_char(e.fixed_term_end, 'YYYY-MM-DD') AS fixed_term_end,
         e.hours_per_day::float AS hours_per_day, e.hours_per_week::float AS hours_per_week,
-        s.name AS site_name FROM employees e LEFT JOIN sites s ON e.site_id = s.id WHERE e.site_id = $1 ORDER BY e.id DESC`, [authenticatedSiteId]);
+        s.name AS site_name FROM employees e LEFT JOIN sites s ON e.site_id = s.id WHERE ($1 = -1 OR e.site_id = $1) ORDER BY e.id DESC`, [authenticatedSiteId]);
       return res.status(200).json(result.rows);
     }
 
@@ -77,14 +77,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!id) return res.status(400).json({ error: 'Employee id is required.' });
       const result = await query(`UPDATE employees
         SET is_terminated = $1, terminated_at = CASE WHEN $1 THEN CURRENT_DATE ELSE NULL END
-        WHERE id = $2 AND site_id = $3
+        WHERE id = $2 AND ($3 = -1 OR site_id = $3)
         RETURNING id, is_terminated, to_char(terminated_at, 'YYYY-MM-DD') AS terminated_at`, [terminated, id, authenticatedSiteId]);
       return result.rowCount ? res.status(200).json(result.rows[0]) : res.status(404).json({ error: 'Employee not found.' });
     }
 
     if (req.method === 'POST' || req.method === 'PUT') {
       const values = normalize(req.body || {});
-      values.site_id = authenticatedSiteId;
+      values.site_id = authenticatedSiteId === -1 ? (req.body?.site_id ? Number(req.body.site_id) : null) : authenticatedSiteId;
       if (!values.name) return res.status(400).json({ error: 'Employee name is required.' });
       const photoError = validatePhoto(values.photo);
       if (photoError) return res.status(400).json({ error: photoError });
@@ -102,14 +102,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const id = Number(req.body?.id);
       if (!id) return res.status(400).json({ error: 'Employee id is required.' });
       const assignments = writableColumns.map((column, index) => `${column} = $${index + 1}`).join(', ');
-      const result = await query(`UPDATE employees SET ${assignments} WHERE id = $${params.length + 1} AND site_id = $${params.length + 2} RETURNING id`, [...params, id, authenticatedSiteId]);
+      const result = await query(`UPDATE employees SET ${assignments} WHERE id = $${params.length + 1} AND ($${params.length + 2} = -1 OR site_id = $${params.length + 2}) RETURNING id`, [...params, id, authenticatedSiteId]);
       return result.rowCount ? res.status(200).json(result.rows[0]) : res.status(404).json({ error: 'Employee not found.' });
     }
 
     if (req.method === 'DELETE') {
       const id = Number(req.query.id);
       if (!id) return res.status(400).json({ error: 'Employee id is required.' });
-      const result = await query('DELETE FROM employees WHERE id = $1 AND site_id = $2 RETURNING id', [id, authenticatedSiteId]);
+      const result = await query('DELETE FROM employees WHERE id = $1 AND ($2 = -1 OR site_id = $2) RETURNING id', [id, authenticatedSiteId]);
       return result.rowCount ? res.status(204).end() : res.status(404).json({ error: 'Employee not found.' });
     }
 

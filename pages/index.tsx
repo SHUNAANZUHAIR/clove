@@ -1897,12 +1897,13 @@ function AttendancePanel({
     <section className="attendance-panel" aria-label="Employee attendance tracking">
       {!journeyOpen ? (
         <button className="give-salary-button attendance-start-button" type="button" disabled={sites.length === 0 || records.length === 0} onClick={() => {
-          const loggedSiteId = sites[0]?.id.toString() || '';
+          const isSingleSiteLogin = sites.length === 1;
+          const loggedSiteId = isSingleSiteLogin ? sites[0].id.toString() : '';
           setJourneyOpen(true);
           setAttendanceScope('site');
           setJourneySiteId(loggedSiteId);
-          setJourneyIncludedIds(records.filter((record) => record.site_id?.toString() === loggedSiteId).map((record) => record.employee_id));
-          setJourneyStep(2);
+          setJourneyIncludedIds(isSingleSiteLogin ? records.map((record) => record.employee_id) : null);
+          setJourneyStep(isSingleSiteLogin ? 2 : 1);
           setVisibleDateCount(5);
           setAttendanceConfirmation('');
         }}>
@@ -1917,7 +1918,7 @@ function AttendancePanel({
           </div>
           <div className="wizard-steps" aria-label="Attendance steps">
             {['Site team', 'Date', 'Hours', 'Done'].map((label, index) => (
-              <button key={label} className={`wizard-step ${journeyStep === index + 1 ? 'is-current' : journeyStep > index + 1 ? 'is-complete' : 'is-upcoming'}`} type="button" disabled={index === 0 || index + 1 > journeyStep || index === 3} onClick={() => setJourneyStep(index + 1)}>
+              <button key={label} className={`wizard-step ${journeyStep === index + 1 ? 'is-current' : journeyStep > index + 1 ? 'is-complete' : 'is-upcoming'}`} type="button" disabled={(index === 0 && sites.length === 1) || index + 1 > journeyStep || index === 3} onClick={() => setJourneyStep(index + 1)}>
                 <span className="wizard-step-node">{journeyStep > index + 1 ? <Check size={17} /> : index + 1}</span>
                 <span className="wizard-step-label">{label}</span>
               </button>

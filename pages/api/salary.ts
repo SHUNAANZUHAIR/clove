@@ -31,7 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           e.medium
         FROM salary_transactions s
         JOIN employees e ON s.employee_id = e.id
-        WHERE e.site_id = $1
+        WHERE ($1 = -1 OR e.site_id = $1)
       `;
       const params: any[] = [authenticatedSiteId];
       
@@ -75,7 +75,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 
 	      const selectedEmployeeIds = normalizeEmployeeIds(employee_ids, employee_id);
-	      const targets = await getSalaryTargets(authenticatedSiteId, selectedEmployeeIds, job_level);
+	      const requestedSiteId = Number(site_id);
+	      const targetSiteId = authenticatedSiteId === -1 && Number.isInteger(requestedSiteId) && requestedSiteId > 0 ? requestedSiteId : authenticatedSiteId;
+	      const targets = await getSalaryTargets(targetSiteId, selectedEmployeeIds, job_level);
 	      if (targets.length === 0) {
 	        return res.status(400).json({ error: 'No employees found for salary entry' });
 	      }
@@ -172,7 +174,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { id, status } = req.body;
       const result = await query(
         `UPDATE salary_transactions SET status=$1, updated_at=CURRENT_TIMESTAMP WHERE id=$2
-           AND employee_id IN (SELECT id FROM employees WHERE site_id = $3)
+           AND employee_id IN (SELECT id FROM employees WHERE $3 = -1 OR site_id = $3)
          RETURNING
            id,
            employee_id,
@@ -205,7 +207,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 
       const result = await query(`DELETE FROM salary_transactions WHERE id=$1
-        AND employee_id IN (SELECT id FROM employees WHERE site_id = $2) RETURNING id`, [parsedId, authenticatedSiteId]);
+        AND employee_id IN (SELECT id FROM employees WHERE $2 = -1 OR site_id = $2) RETURNING id`, [parsedId, authenticatedSiteId]);
       if (result.rowCount === 0) {
         return res.status(404).json({ error: 'Salary transaction not found' });
       }
@@ -229,7 +231,7 @@ async function getSalaryTargets(siteId: number, employeeIds: number[] = [], jobL
       `SELECT DISTINCT e.id, e.salary::float AS salary, to_char(e.join_date, 'YYYY-MM-DD') AS join_date
        FROM employees e
        LEFT JOIN site_team st ON st.employee_id = e.id
-       WHERE (e.site_id = $1 OR st.site_id = $1) AND COALESCE(e.is_terminated, FALSE) = FALSE
+       WHERE ($1 = -1 OR e.site_id = $1 OR st.site_id = $1) AND COALESCE(e.is_terminated, FALSE) = FALSE
        ORDER BY e.id`,
       [siteId]
     );
@@ -241,7 +243,7 @@ async function getSalaryTargets(siteId: number, employeeIds: number[] = [], jobL
     const result = await query(
       `SELECT id, salary::float AS salary, to_char(join_date, 'YYYY-MM-DD') AS join_date
        FROM employees
-       WHERE id = ANY($1::int[]) AND site_id = $2 AND COALESCE(is_terminated, FALSE) = FALSE
+       WHERE id = ANY($1::int[]) AND ($2 = -1 OR site_id = $2) AND COALESCE(is_terminated, FALSE) = FALSE
        ORDER BY id`,
       [employeeIds, siteId]
     );
@@ -253,7 +255,7 @@ async function getSalaryTargets(siteId: number, employeeIds: number[] = [], jobL
     const result = await query(
       `SELECT id, salary::float AS salary, to_char(join_date, 'YYYY-MM-DD') AS join_date
        FROM employees
-       WHERE COALESCE(job_level, 'labour') = $1 AND site_id = $2 AND COALESCE(is_terminated, FALSE) = FALSE
+       WHERE COALESCE(job_level, 'labour') = $1 AND ($2 = -1 OR site_id = $2) AND COALESCE(is_terminated, FALSE) = FALSE
        ORDER BY id`,
       [jobLevel, siteId]
     );

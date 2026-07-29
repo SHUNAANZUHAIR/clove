@@ -49,7 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const siteId = requestSiteId(req);
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS job_description TEXT');
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS agreement_verification_token VARCHAR(64) UNIQUE');
-    const whereClause = downloadAll ? 'WHERE e.site_id = $1' : 'WHERE e.site_id = $1 AND e.id = ANY($2::int[])';
+    const whereClause = downloadAll ? 'WHERE ($1 = -1 OR e.site_id = $1)' : 'WHERE ($1 = -1 OR e.site_id = $1) AND e.id = ANY($2::int[])';
     const params = downloadAll ? [siteId] : [siteId, employeeIds];
     const result = await query(`SELECT e.*, e.salary::float AS salary,
       to_char(e.join_date, 'YYYY-MM-DD') AS join_date, to_char(e.fixed_term_end, 'YYYY-MM-DD') AS fixed_term_end,

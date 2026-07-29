@@ -53,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const siteId = requestSiteId(req);
     const employeeIds = normalizeEmployeeIds(req.query.employee_ids);
     if (employeeIds.length > 250) return res.status(400).json({ error: 'A maximum of 250 employees can be downloaded together' });
-    const whereClause = employeeIds.length > 0 ? 'WHERE e.site_id = $1 AND e.id = ANY($2::int[])' : 'WHERE e.site_id = $1';
+    const whereClause = employeeIds.length > 0 ? 'WHERE ($1 = -1 OR e.site_id = $1) AND e.id = ANY($2::int[])' : 'WHERE ($1 = -1 OR e.site_id = $1)';
     const result = await query(`
       SELECT
         e.id,

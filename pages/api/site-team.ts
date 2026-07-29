@@ -14,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         FROM site_team st
         JOIN employees e ON st.employee_id = e.id
         WHERE st.site_id = $1
-      `, [Number(siteId) === authenticatedSiteId ? authenticatedSiteId : -1]);
+      `, [authenticatedSiteId === -1 ? Number(siteId) : Number(siteId) === authenticatedSiteId ? authenticatedSiteId : 0]);
       return res.status(200).json(result.rows);
     }
 
@@ -24,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const result = await query(
         `INSERT INTO site_team (site_id, employee_id)
          SELECT $1, id FROM employees WHERE id = $2 AND site_id = $1 RETURNING *`,
-        [authenticatedSiteId, employee_id]
+        [authenticatedSiteId === -1 ? Number(site_id) : authenticatedSiteId, employee_id]
       );
       return res.status(201).json(result.rows[0]);
     }
@@ -32,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === 'DELETE') {
       const { id } = req.query;
-      await query('DELETE FROM site_team WHERE id=$1 AND site_id=$2', [id, authenticatedSiteId]);
+      await query('DELETE FROM site_team WHERE id=$1 AND ($2 = -1 OR site_id=$2)', [id, authenticatedSiteId]);
       return res.status(200).json({ success: true });
     }
 

@@ -51,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const month = singleValue(req.query.month);
     const status = singleValue(req.query.status);
     const params: Array<string | number> = [siteId];
-    let where = 'WHERE e.site_id = $1';
+    let where = 'WHERE ($1 = -1 OR e.site_id = $1)';
 
     if (month && month !== 'all') {
       const parsedMonth = Number(month);

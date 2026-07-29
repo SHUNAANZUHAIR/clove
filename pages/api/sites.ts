@@ -8,20 +8,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const authenticatedSiteId = requestSiteId(req);
     if (req.method === 'GET') {
-      const result = await query('SELECT * FROM sites WHERE id = $1', [authenticatedSiteId]);
+      const result = await query('SELECT * FROM sites WHERE ($1 = -1 OR id = $1) ORDER BY id DESC', [authenticatedSiteId]);
       return res.status(200).json(result.rows);
     }
 
 
     if (req.method === 'POST') {
-      return res.status(403).json({ error: 'Site logins cannot create other work sites.' });
+      if (authenticatedSiteId !== -1) return res.status(403).json({ error: 'Site logins cannot create other work sites.' });
+      const { name, location } = req.body;
+      const result = await query('INSERT INTO sites (name, location) VALUES ($1, $2) RETURNING *', [name, location]);
+      return res.status(201).json(result.rows[0]);
     }
 
 
     if (req.method === 'PUT') {
       const { id, name, location } = req.body;
       const result = await query(
-        'UPDATE sites SET name=$1, location=$2 WHERE id=$3 AND id=$4 RETURNING *',
+        'UPDATE sites SET name=$1, location=$2 WHERE id=$3 AND ($4 = -1 OR id=$4) RETURNING *',
         [name, location, id, authenticatedSiteId]
       );
       return res.status(200).json(result.rows[0]);
@@ -30,10 +33,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === 'DELETE') {
       const { id } = req.query;
-      if (Number(id) !== authenticatedSiteId) return res.status(403).json({ error: 'Access denied.' });
-      await query('UPDATE employees SET site_id=NULL WHERE site_id=$1', [authenticatedSiteId]);
-      await query('DELETE FROM site_team WHERE site_id=$1', [authenticatedSiteId]);
-      const result = await query('DELETE FROM sites WHERE id=$1 RETURNING id', [authenticatedSiteId]);
+      if (authenticatedSiteId !== -1 && Number(id) !== authenticatedSiteId) return res.status(403).json({ error: 'Access denied.' });
+      const targetSiteId = Number(id);
+      await query('UPDATE employees SET site_id=NULL WHERE site_id=$1', [targetSiteId]);
+      await query('DELETE FROM site_team WHERE site_id=$1', [targetSiteId]);
+      const result = await query('DELETE FROM sites WHERE id=$1 RETURNING id', [targetSiteId]);
       return res.status(200).json({ success: true, deleted: result.rowCount });
     }
 

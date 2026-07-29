@@ -48,7 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       FROM salary_transactions s
       JOIN employees e ON e.id = s.employee_id
       LEFT JOIN sites site ON site.id = e.site_id
-      WHERE s.id = ANY($1::int[]) AND e.site_id = $2
+      WHERE s.id = ANY($1::int[]) AND ($2 = -1 OR e.site_id = $2)
       ORDER BY LOWER(e.name), s.year, s.month
     `, [transactionIds, siteId]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Salary transactions not found' });
