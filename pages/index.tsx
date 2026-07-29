@@ -1825,7 +1825,7 @@ function AttendancePanel({
   const [journeyEmployeeId, setJourneyEmployeeId] = useState('');
   const [journeySiteId, setJourneySiteId] = useState('');
   const [journeyIncludedIds, setJourneyIncludedIds] = useState<number[] | null>(null);
-  const [visibleDateCount, setVisibleDateCount] = useState(7);
+  const [visibleDateCount, setVisibleDateCount] = useState(5);
   const [journeyInTime, setJourneyInTime] = useState('09:00');
   const [journeyOutTime, setJourneyOutTime] = useState('17:00');
   const [attendanceConfirmation, setAttendanceConfirmation] = useState('');
@@ -1887,6 +1887,7 @@ function AttendancePanel({
         <button className="give-salary-button attendance-start-button" type="button" onClick={() => {
           setJourneyOpen(true);
           setJourneyStep(1);
+          setVisibleDateCount(5);
           setAttendanceConfirmation('');
         }}>
           <ClipboardCheck size={20} />
@@ -1922,10 +1923,11 @@ function AttendancePanel({
             <div className="attendance-date-strip" aria-label="Select attendance date">
               {journeyDates.map((item) => {
                 const value = localDateValue(item);
-                return <button key={value} className={date === value ? 'is-selected' : ''} type="button" onClick={() => onDateChange(value)}><small>{item.toLocaleDateString('en-US', { weekday: 'short' })}</small><strong>{item.getDate()}</strong><span>{item.toLocaleDateString('en-US', { month: 'short' })}</span></button>;
+                const isToday = value === localDateValue(today);
+                return <button key={value} className={`${isToday ? 'is-today' : 'is-past'}${date === value ? ' is-selected' : ''}`} type="button" onClick={() => onDateChange(value)}><small>{item.toLocaleDateString('en-US', { weekday: 'short' })}</small><strong>{item.getDate()}</strong><span>{item.toLocaleDateString('en-US', { month: 'short' })}</span></button>;
               })}
             </div>
-            <button className="text-link attendance-load-more" type="button" onClick={() => setVisibleDateCount((count) => count + 7)}>Load previous 7 days</button>
+            <button className="text-link attendance-load-more" type="button" onClick={() => setVisibleDateCount((count) => count + 5)}>Load previous 5 days</button>
             <div className="action-row"><button className="soft-button" type="button" onClick={() => setJourneyStep(1)}><ChevronLeft size={16} /> Back</button><button className="dark-button" type="button" onClick={() => setJourneyStep(3)}>Next <ChevronRight size={16} /></button></div>
           </div>}
           {journeyStep === 3 && <div className="wizard-panel">

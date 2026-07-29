@@ -704,12 +704,18 @@ button:disabled {
 }
 
 .attendance-journey { min-width: 0; display: grid; gap: 14px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
-.attendance-date-strip { display: grid; grid-template-columns: repeat(7, minmax(54px, 1fr)); gap: 7px; overflow-x: auto; padding: 4px 1px 8px; }
+.attendance-date-strip { display: grid; grid-template-columns: repeat(5, minmax(54px, 1fr)); gap: 7px; overflow-x: auto; padding: 4px 1px 8px; }
 .attendance-date-strip button { min-height: 72px; display: grid; place-items: center; gap: 1px; border: 1px solid var(--line); border-radius: 11px; color: var(--ink); background: var(--panel-soft); padding: 7px 4px; }
 .attendance-date-strip button small,
 .attendance-date-strip button span { color: var(--muted); font-size: 0.66rem; }
 .attendance-date-strip button strong { font-size: 1.05rem; }
-.attendance-date-strip button.is-selected { border-color: #72b8f3; color: #2574b8; background: #e6f4ff; box-shadow: inset 0 0 0 1px #72b8f3; }
+.attendance-date-strip button.is-past { border-color: #efc4c4; color: #9b3b3b; background: #fff3f3; }
+.attendance-date-strip button.is-today { border-color: #8fc7a8; color: #276749; background: #e8f6ee; }
+.attendance-date-strip button.is-past small,
+.attendance-date-strip button.is-past span { color: #b96767; }
+.attendance-date-strip button.is-today small,
+.attendance-date-strip button.is-today span { color: #4f8d67; }
+.attendance-date-strip button.is-selected { box-shadow: inset 0 0 0 2px currentColor; }
 .attendance-load-more { justify-self: center; }
 .journey-selection-note { margin: 0; color: var(--muted); font-size: 0.78rem; }
 .attendance-success { justify-items: center; padding: 24px 12px; text-align: center; }
