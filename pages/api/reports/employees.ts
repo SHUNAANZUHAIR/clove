@@ -49,6 +49,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 
   try {
+    const employeeIds = normalizeEmployeeIds(req.query.employee_ids);
+    if (employeeIds.length > 250) return res.status(400).json({ error: 'A maximum of 250 employees can be downloaded together' });
+    const whereClause = employeeIds.length > 0 ? 'WHERE e.id = ANY($1::int[])' : '';
     const result = await query(`
       SELECT
         e.id,
@@ -60,8 +63,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         s.name AS site_name
       FROM employees e
       LEFT JOIN sites s ON e.site_id = s.id
+      ${whereClause}
       ORDER BY e.name ASC
-    `);
+    `, employeeIds.length > 0 ? [employeeIds] : []);
 
 
     const employees = result.rows as EmployeeReportRow[];
@@ -78,6 +82,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error('Employee report error:', error);
     return res.status(500).json({ error: 'Could not generate employee report' });
   }
+}
+
+function normalizeEmployeeIds(value: string | string[] | undefined) {
+  const joined = Array.isArray(value) ? value.join(',') : value || '';
+  return Array.from(new Set(joined.split(',').map(Number).filter((id) => Number.isInteger(id) && id > 0)));
 }
 
 

@@ -907,10 +907,15 @@ export default function Home() {
                   title="Team"
                   action={(
                     <span className="section-actions">
-                      <span>{filteredEmployees.length} listed</span>
-                      <a className="soft-button compact" href="/api/reports/employees">
+                      <span>{selectedAgreementIds.length > 0 ? `${selectedAgreementIds.length} selected` : `${filteredEmployees.length} listed`}</span>
+                      <a
+                        className="soft-button compact"
+                        href={selectedAgreementIds.length > 0
+                          ? `/api/reports/employees?employee_ids=${selectedAgreementIds.join(',')}`
+                          : '/api/reports/employees'}
+                      >
                         <Download size={15} />
-                        PDF
+                        {selectedAgreementIds.length > 0 ? `PDF (${selectedAgreementIds.length})` : 'PDF'}
                       </a>
                       <button
                         className="soft-button compact"
