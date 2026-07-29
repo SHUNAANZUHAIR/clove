@@ -322,6 +322,7 @@ const freshSalaryForm = () => ({
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [employeeGroups, setEmployeeGroups] = useState(defaultEmployeeGroups);
   const [sites, setSites] = useState<Site[]>([]);
   const [salaryTransactions, setSalaryTransactions] = useState<SalaryTransaction[]>([]);
@@ -392,7 +393,7 @@ export default function Home() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      await Promise.all([fetchEmployees(), fetchEmployeeGroups(), fetchSites(), fetchSalaryTransactions()]);
+      await Promise.all([fetchSession(), fetchEmployees(), fetchEmployeeGroups(), fetchSites(), fetchSalaryTransactions()]);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -443,6 +444,11 @@ export default function Home() {
     } finally {
       setAttendanceLoading(false);
     }
+  };
+
+  const fetchSession = async () => {
+    const res = await fetch('/api/auth/session');
+    if (res.ok) setIsSuperAdmin(Boolean((await res.json()).is_super_admin));
   };
 
   const fetchEmployeeGroups = async () => {
@@ -831,7 +837,7 @@ export default function Home() {
           if (!second.join_date) return -1;
           return first.join_date.localeCompare(second.join_date) || first.name.localeCompare(second.name);
         }),
-    }))
+    })).filter((group) => group.employees.length > 0)
   ), [filteredEmployees]);
   const orderedTeamEmployees = useMemo(
     () => employeeGroupsWithEmployees.flatMap((group) => group.employees),
@@ -851,9 +857,10 @@ export default function Home() {
 
   const salaryTargets = getSalaryTargets(salaryForm, employees, salarySiteMemberIds);
 
-  const title = activeTab === 'profile' ? 'Welcome, Clove' : activeTab === 'salary' ? 'Payroll' : activeTab === 'attendance' ? 'Attendance' : 'Work Sites';
+  const loggedSiteName = !isSuperAdmin && sites.length === 1 ? sites[0].name : '';
+  const title = activeTab === 'profile' ? `Welcome, ${isSuperAdmin ? 'Super Admin' : loggedSiteName || 'Clove'}` : activeTab === 'salary' ? 'Payroll' : activeTab === 'attendance' ? 'Attendance' : 'Work Sites';
   const subtitle = activeTab === 'profile'
-    ? `${sites.length} work sites`
+    ? isSuperAdmin ? `${sites.length} work sites` : loggedSiteName
     : activeTab === 'salary'
       ? `${filteredSalaryTransactions.length} salary records`
       : activeTab === 'attendance'
@@ -880,7 +887,7 @@ export default function Home() {
               <UsersRound size={16} />
               {employees.length}
             </span>
-            <button
+            {isSuperAdmin && <button
               className={`icon-button${activeTab === 'site' ? ' is-active' : ''}`}
               title="Sites"
               aria-label="Open Sites"
@@ -888,7 +895,7 @@ export default function Home() {
               onClick={() => setActiveTab('site')}
             >
               <MapPin size={18} />
-            </button>
+            </button>}
             <button className="icon-button danger" title="Log out" aria-label="Log out" type="button" onClick={handleLogout}>
               <LogOut size={18} />
             </button>
@@ -999,6 +1006,7 @@ export default function Home() {
 
                 <EmployeeForm
                   employeesSites={sites}
+                  allowSiteSelection={isSuperAdmin}
                   employeeGroups={employeeGroups}
                   form={profileForm}
                   expanded={employeeFormExpanded}
@@ -1539,6 +1547,7 @@ function EmployeeQuickView({ employee, onClose }: { employee: Employee; onClose:
 
 function EmployeeForm({
   employeesSites,
+  allowSiteSelection,
   employeeGroups,
   form,
   expanded,
@@ -1558,6 +1567,7 @@ function EmployeeForm({
   onCancel,
 }: {
   employeesSites: Site[];
+  allowSiteSelection: boolean;
   employeeGroups: Array<{ value: EmployeeType; label: string }>;
   form: typeof emptyProfileForm;
   expanded: boolean;
@@ -1576,7 +1586,8 @@ function EmployeeForm({
   onToggle: () => void;
   onCancel: () => void;
 }) {
-  const selectedWorkSite = employeesSites.find((site) => site.id.toString() === form.site_id);
+  const selectedWorkSite = employeesSites.find((site) => site.id.toString() === form.site_id)
+    || (!allowSiteSelection ? employeesSites[0] : undefined);
   const isCloveCafeEmployee = selectedWorkSite?.name.toLowerCase().includes('clove cafe') ?? false;
 
   return (
@@ -1651,15 +1662,17 @@ function EmployeeForm({
                 ))}
               </select>
             </label>
-            <label>
-              <span>Work site</span>
-              <select value={form.site_id} onChange={(event) => onChange({ ...form, site_id: event.target.value })}>
-                <option value="">None</option>
-                {employeesSites.map((site) => (
-                  <option key={site.id} value={site.id}>{site.name}</option>
-                ))}
-              </select>
-            </label>
+            {allowSiteSelection ? (
+              <label>
+                <span>Work site</span>
+                <select value={form.site_id} onChange={(event) => onChange({ ...form, site_id: event.target.value })}>
+                  <option value="">Select work site</option>
+                  {employeesSites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
+                </select>
+              </label>
+            ) : (
+              <label><span>Work site</span><input value={employeesSites[0]?.name || 'Logged-in site'} readOnly /></label>
+            )}
             {isCloveCafeEmployee && (
               <>
             <label>

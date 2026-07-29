@@ -18,3 +18,16 @@ export function verifyPassword(password: unknown) {
   const second = Buffer.from(expected);
   return first.length === second.length && timingSafeEqual(first, second);
 }
+
+export function readSessionSiteId(cookieHeader?: string) {
+  const cookie = String(cookieHeader || '').split(';').map((item) => item.trim()).find((item) => item.startsWith(`${authCookieName}=`));
+  const value = cookie?.slice(authCookieName.length + 1);
+  if (!value) return 0;
+  const parts = value.split('.');
+  if (parts.length !== 3 || Number(parts[1]) <= Math.floor(Date.now() / 1000)) return 0;
+  const payload = `${parts[0]}.${parts[1]}`;
+  const expected = createHmac('sha256', secret).update(payload).digest('hex');
+  const supplied = Buffer.from(parts[2]);
+  const valid = Buffer.from(expected);
+  return supplied.length === valid.length && timingSafeEqual(supplied, valid) ? Number(parts[0]) : 0;
+}
