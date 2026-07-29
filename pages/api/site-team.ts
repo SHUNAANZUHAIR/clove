@@ -22,10 +22,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === 'POST') {
       const { site_id, employee_id } = req.body;
       const result = await query(
-        `INSERT INTO site_team (site_id, employee_id)
-         SELECT $1, id FROM employees WHERE id = $2 AND site_id = $1 RETURNING *`,
+        `WITH candidate AS (
+           SELECT $1::int AS site_id, id AS employee_id
+           FROM employees
+           WHERE id = $2 AND site_id = $1
+         ), inserted AS (
+           INSERT INTO site_team (site_id, employee_id)
+           SELECT site_id, employee_id FROM candidate
+           ON CONFLICT (site_id, employee_id) DO NOTHING
+           RETURNING *
+         )
+         SELECT * FROM inserted
+         UNION ALL
+         SELECT st.* FROM site_team st
+         JOIN candidate c ON c.site_id = st.site_id AND c.employee_id = st.employee_id
+         LIMIT 1`,
         [authenticatedSiteId === -1 ? Number(site_id) : authenticatedSiteId, employee_id]
       );
+      if (result.rowCount === 0) {
+        return res.status(404).json({ error: 'Employee is not assigned to this site' });
+      }
       return res.status(201).json(result.rows[0]);
     }
 

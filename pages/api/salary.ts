@@ -135,6 +135,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
              net_salary = EXCLUDED.net_salary,
              status = EXCLUDED.status,
              updated_at = CURRENT_TIMESTAMP
+           WHERE salary_transactions.status <> 'paid'
            RETURNING
              id,
              employee_id,
@@ -162,6 +163,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             status || 'paid',
           ]
         );
+        if (result.rowCount === 0) {
+          return res.status(409).json({
+            error: `Salary is already paid for employee ${target.id}. Refresh to see the latest records.`,
+          });
+        }
         savedRows.push(result.rows[0]);
       }
 

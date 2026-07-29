@@ -18,14 +18,24 @@ async function validSession(value?: string) {
 export async function middleware(request: NextRequest) {
   const siteId = await validSession(request.cookies.get(cookieName)?.value);
   const pathname = request.nextUrl.pathname.replace(/\/$/, '') || '/';
-  if (pathname === '/login') return siteId ? NextResponse.redirect(new URL('/', request.url)) : NextResponse.next();
+  if (pathname === '/login') {
+    return preventSharedCaching(siteId ? NextResponse.redirect(new URL('/', request.url)) : NextResponse.next());
+  }
   if (!siteId) {
-    if (request.nextUrl.pathname.startsWith('/api/')) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    return NextResponse.redirect(new URL('/login', request.url));
+    if (request.nextUrl.pathname.startsWith('/api/')) {
+      return preventSharedCaching(NextResponse.json({ error: 'Authentication required' }, { status: 401 }));
+    }
+    return preventSharedCaching(NextResponse.redirect(new URL('/login', request.url)));
   }
   const headers = new Headers(request.headers);
   headers.set('x-clovehr-site-id', String(siteId));
-  return NextResponse.next({ request: { headers } });
+  return preventSharedCaching(NextResponse.next({ request: { headers } }));
+}
+
+function preventSharedCaching(response: NextResponse) {
+  response.headers.set('Cache-Control', 'private, no-store, max-age=0');
+  response.headers.set('Vary', 'Cookie');
+  return response;
 }
 
 export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|api/auth|verify-agreement).*)'] };
