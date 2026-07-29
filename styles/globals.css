@@ -551,6 +551,54 @@ button:disabled {
   padding: 7px 8px;
 }
 
+.employee-quick-trigger,
+.employee-name-trigger { border: 0; padding: 0; color: inherit; background: transparent; text-align: left; }
+.employee-quick-trigger { display: inline-flex; border-radius: 50%; }
+.employee-name-trigger { width: fit-content; font: inherit; font-weight: 700; }
+.employee-quick-trigger:hover,
+.employee-name-trigger:hover { color: var(--primary-ink); }
+
+.quick-view-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(24, 25, 22, 0.5);
+  backdrop-filter: blur(3px);
+}
+
+.employee-quick-view {
+  width: min(560px, 100%);
+  max-height: min(82vh, 760px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: 0 24px 70px rgba(24, 25, 22, 0.24);
+}
+
+.quick-view-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.quick-view-header h2 { margin: 0 0 3px; font-size: 1.08rem; }
+.quick-view-header span { color: var(--muted); font-size: 0.78rem; }
+.quick-view-scroll { overflow-y: auto; padding: 16px 18px 22px; }
+.quick-view-status { margin-bottom: 12px; padding: 9px 11px; border-radius: var(--radius); font-size: 0.78rem; font-weight: 700; }
+.quick-view-status.terminated { color: var(--danger); background: rgba(176, 63, 63, 0.1); }
+.quick-view-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; margin: 0; }
+.quick-view-details > div { min-width: 0; padding: 11px 8px; border-bottom: 1px solid var(--line); }
+.quick-view-details dt { margin-bottom: 4px; color: var(--muted); font-size: 0.66rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.quick-view-details dd { margin: 0; overflow-wrap: anywhere; font-size: 0.82rem; line-height: 1.45; }
+
 
 .avatar {
   width: 32px;
@@ -2007,6 +2055,10 @@ button:disabled {
 }
 
 @media (max-width: 460px) {
+  .quick-view-backdrop { padding: 10px; }
+  .employee-quick-view { max-height: 88vh; border-radius: 14px; }
+  .quick-view-details { grid-template-columns: 1fr; }
+
   .app-shell {
     padding: 12px;
   }

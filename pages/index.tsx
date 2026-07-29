@@ -330,6 +330,7 @@ export default function Home() {
   const [selectedSite, setSelectedSite] = useState<number | null>(null);
   const [selectedSalaryIds, setSelectedSalaryIds] = useState<number[]>([]);
   const [selectedAgreementIds, setSelectedAgreementIds] = useState<number[]>([]);
+  const [quickViewEmployee, setQuickViewEmployee] = useState<Employee | null>(null);
   const [teamSelections, setTeamSelections] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(false);
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().slice(0, 10));
@@ -968,6 +969,7 @@ export default function Home() {
                           requestAnimationFrame(() => document.getElementById('employee-onboarding')?.scrollIntoView({ behavior: 'smooth' }));
                         }}
                         onDelete={handleDeleteEmployee}
+                        onView={setQuickViewEmployee}
                         onAgreementToggle={(employeeId) => setSelectedAgreementIds((current) => (
                           current.includes(employeeId)
                             ? current.filter((id) => id !== employeeId)
@@ -1311,6 +1313,10 @@ export default function Home() {
           </div>
         )}
 
+        {quickViewEmployee && (
+          <EmployeeQuickView employee={quickViewEmployee} onClose={() => setQuickViewEmployee(null)} />
+        )}
+
         </section>
       </main>
     </>
@@ -1353,6 +1359,7 @@ function TeamGroup({
   onEdit,
   onDuplicate,
   onDelete,
+  onView,
   onAgreementToggle,
   onAgreementGroupToggle,
 }: {
@@ -1364,9 +1371,11 @@ function TeamGroup({
   onEdit: (employee: Employee) => void;
   onDuplicate: (employee: Employee) => void;
   onDelete: (id: number) => void;
+  onView: (employee: Employee) => void;
   onAgreementToggle: (id: number) => void;
   onAgreementGroupToggle: (ids: number[]) => void;
 }) {
+  const [selectionVisible, setSelectionVisible] = useState(false);
   const visibleEmployees = expanded ? employees : employees.slice(0, collapsedEmployeeLimit);
   const hiddenCount = Math.max(0, employees.length - collapsedEmployeeLimit);
   const groupEmployeeIds = employees.map((employee) => employee.id);
@@ -1381,7 +1390,10 @@ function TeamGroup({
         </div>
         <div className="team-group-actions">
           {employees.length > 0 && (
-            <button className="soft-button compact" type="button" onClick={() => onAgreementGroupToggle(groupEmployeeIds)}>
+            <button className="soft-button compact" type="button" onClick={() => {
+              onAgreementGroupToggle(groupEmployeeIds);
+              setSelectionVisible(!groupSelected);
+            }}>
               {groupSelected ? 'Clear group' : 'Select group'}
             </button>
           )}
@@ -1398,7 +1410,7 @@ function TeamGroup({
         ) : (
           visibleEmployees.map((employee, index) => (
             <article className={`person-card${employee.is_terminated ? ' is-terminated' : ''}`} key={employee.id}>
-              <label className="check-shell agreement-select-check" title={`Select agreement for ${employee.name}`}>
+              {selectionVisible && <label className="check-shell agreement-select-check" title={`Select agreement for ${employee.name}`}>
                 <input
                   type="checkbox"
                   aria-label={`Select agreement for ${employee.name}`}
@@ -1406,10 +1418,12 @@ function TeamGroup({
                   onChange={() => onAgreementToggle(employee.id)}
                 />
                 <span><Check size={12} /></span>
-              </label>
-              <Avatar employee={employee} />
+              </label>}
+              <button className="employee-quick-trigger avatar-trigger" type="button" onClick={() => onView(employee)} aria-label={`Quick view ${employee.name}`}>
+                <Avatar employee={employee} />
+              </button>
               <div className="card-main">
-                <strong>{employee.name}</strong>
+                <button className="employee-name-trigger" type="button" onClick={() => onView(employee)}>{employee.name}</button>
                 {employee.is_terminated && <span className="employee-terminated-badge">TERMINATED{employee.terminated_at ? ` · ${formatDate(employee.terminated_at)}` : ''}</span>}
                 <span>{employee.site_name || 'Unassigned'} / {formatCurrency(employee.salary)}</span>
                 <small>
@@ -1462,6 +1476,54 @@ function TeamGroup({
         )}
       </div>
     </section>
+  );
+}
+
+function EmployeeQuickView({ employee, onClose }: { employee: Employee; onClose: () => void }) {
+  const details = [
+    ['Passport / ID', employee.id_number || 'Not provided'],
+    ['Work permit', employee.work_permit_number || 'Not provided'],
+    ['Nationality', employee.nationality || 'Not provided'],
+    ['Job title', employee.job_title || jobLevelLabel(employee.job_level)],
+    ['Team group', employeeTypeLabel(employee.employee_type)],
+    ['Work site', employee.site_name || 'Unassigned'],
+    ['Join date', employee.join_date ? formatDate(employee.join_date) : 'Not provided'],
+    ['Birthdate', employee.birth_date ? formatDate(employee.birth_date) : 'Not provided'],
+    ['Monthly salary', formatCurrency(employee.salary)],
+    ['Payment method', paymentLabel(employee.medium)],
+    ['Employment', employee.is_terminated ? `Terminated${employee.terminated_at ? ` on ${formatDate(employee.terminated_at)}` : ''}` : employee.employment_status === 'fixed_term' ? `Fixed term${employee.fixed_term_end ? ` until ${formatDate(employee.fixed_term_end)}` : ''}` : 'Active / permanent'],
+    ['Address', employee.current_address || 'Not provided'],
+    ['Working hours', employee.hours_per_day ? `${employee.hours_per_day} hours per day${employee.hours_per_week ? ` / ${employee.hours_per_week} per week` : ''}` : 'Not provided'],
+    ['Allowances / benefits', employee.allowances_benefits || employee.benefit_details || 'Not provided'],
+    ['Job description', employee.job_description || 'Not provided'],
+  ];
+
+  return (
+    <div className="quick-view-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="employee-quick-view" role="dialog" aria-modal="true" aria-label={`${employee.name} profile`}>
+        <header className="quick-view-header">
+          <Avatar employee={employee} />
+          <div>
+            <h2>{employee.name}</h2>
+            <span>{employee.job_title || jobLevelLabel(employee.job_level)}</span>
+          </div>
+          <button className="icon-button" type="button" title="Close profile" aria-label="Close profile" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </header>
+        <div className="quick-view-scroll">
+          {employee.is_terminated && <div className="quick-view-status terminated">Employment terminated</div>}
+          <dl className="quick-view-details">
+            {details.map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
+    </div>
   );
 }
 
