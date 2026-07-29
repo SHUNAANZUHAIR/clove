@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../lib/db';
+import { requestSiteId, isSuperAdmin } from '../../lib/request-auth';
 
 const defaults = [
   ['local', 'Local Employee'],
@@ -24,6 +25,8 @@ async function ensureGroups() {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    const authenticatedSiteId = requestSiteId(req);
+    if (!isSuperAdmin(authenticatedSiteId)) return res.status(403).json({ error: 'Only super admin can access the team workspace.' });
     await ensureGroups();
     if (req.method === 'GET') {
       const result = await query('SELECT value, label FROM employee_groups ORDER BY created_at, label');

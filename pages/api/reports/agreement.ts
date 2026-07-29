@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { randomBytes } from 'crypto';
 import { query } from '../../../lib/db';
 import { createQrMatrix } from '../../../lib/qr';
-import { requestSiteId } from '../../../lib/request-auth';
+import { requestSiteId, isSuperAdmin } from '../../../lib/request-auth';
 
 interface AgreementEmployee {
   id: number; name: string; salary: number; id_number: string | null; join_date: string | null;
@@ -47,6 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!downloadAll && employeeIds.length === 0) return res.status(400).json({ error: 'Employee is required' });
   try {
     const siteId = requestSiteId(req);
+    if (!isSuperAdmin(siteId)) return res.status(403).json({ error: 'Only super admin can access the team workspace.' });
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS job_description TEXT');
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS agreement_verification_token VARCHAR(64) UNIQUE');
     const whereClause = downloadAll ? 'WHERE ($1 = -1 OR e.site_id = $1)' : 'WHERE ($1 = -1 OR e.site_id = $1) AND e.id = ANY($2::int[])';

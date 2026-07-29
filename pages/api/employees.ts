@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../lib/db';
-import { requestSiteId } from '../../lib/request-auth';
+import { requestSiteId, isSuperAdmin } from '../../lib/request-auth';
 
 const maxPhotoPayloadLength = 2_500_000;
 const allowedPhotoDataUrl = /^data:image\/(?:jpeg|jpg|png|webp);base64,/;
@@ -59,6 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     await ensureAgreementColumns();
     const authenticatedSiteId = requestSiteId(req);
+    if (!isSuperAdmin(authenticatedSiteId)) return res.status(403).json({ error: 'Only super admin can access the team workspace.' });
 
     if (req.method === 'GET') {
       const result = await query(`SELECT e.*, e.salary::float AS salary,

@@ -12,7 +12,12 @@ export function createSession(siteId: number) {
 }
 
 export function verifyPassword(password: unknown) {
-  const expected = process.env.CLOVEHR_PASSWORD || '123';
+  const expected = process.env.CLOVEHR_PASSWORD;
+  if (!expected) {
+    // Fail closed: never fall back to a guessable default password.
+    console.error('CLOVEHR_PASSWORD is not configured; rejecting all logins.');
+    return false;
+  }
   const supplied = String(password || '');
   const first = Buffer.from(supplied);
   const second = Buffer.from(expected);
