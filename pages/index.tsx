@@ -105,6 +105,16 @@ interface AttendanceRecord {
   notes: string;
 }
 
+interface AttendanceHistoryEntry {
+  id: number;
+  start_date: string;
+  end_date: string;
+  site_id: number | null;
+  site_name: string;
+  employee_count: number;
+  created_at: string;
+}
+
 type Tab = 'profile' | 'salary' | 'attendance' | 'site';
 type SalaryScope = 'employee' | 'site';
 type EmployeeType = 'local' | 'clove_expats' | 'full_time_expats';
@@ -322,6 +332,7 @@ export default function Home() {
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().slice(0, 10));
   const [attendanceEndDate, setAttendanceEndDate] = useState(new Date().toISOString().slice(0, 10));
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [attendanceHistory, setAttendanceHistory] = useState<AttendanceHistoryEntry[]>([]);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [attendanceSaving, setAttendanceSaving] = useState(false);
 
@@ -345,6 +356,7 @@ export default function Home() {
   useEffect(() => {
     if (activeTab !== 'attendance') return;
     fetchAttendance(attendanceDate);
+    fetchAttendanceHistory();
   }, [activeTab, attendanceDate]);
 
   useEffect(() => {
@@ -428,7 +440,12 @@ export default function Home() {
     }
   };
 
-  const saveAttendance = async (recordsToSave: AttendanceRecord[], endDate?: string) => {
+  const fetchAttendanceHistory = async () => {
+    const res = await fetch('/api/attendance?history=1');
+    if (res.ok) setAttendanceHistory(await res.json());
+  };
+
+  const saveAttendance = async (recordsToSave: AttendanceRecord[], endDate?: string, siteId?: string) => {
     setAttendanceSaving(true);
     try {
       const dates = getAttendanceDateRange(attendanceDate, endDate || attendanceDate);
@@ -443,10 +460,11 @@ export default function Home() {
       const res = await fetch('/api/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dates, records: recordsToSave }),
+        body: JSON.stringify({ dates, records: recordsToSave, site_id: siteId === 'all' ? null : Number(siteId) }),
       });
       if (!res.ok) throw new Error('Could not save attendance');
       await fetchAttendance(attendanceDate);
+      await fetchAttendanceHistory();
       alert(dates.length === 1 ? 'Attendance saved.' : `Attendance saved for ${dates.length} days.`);
     } catch (error) {
       console.error(error);
@@ -1129,6 +1147,7 @@ export default function Home() {
                 date={attendanceDate}
                 endDate={attendanceEndDate}
                 records={attendanceRecords}
+                history={attendanceHistory}
                 sites={sites}
                 search={search}
                 loading={attendanceLoading}
@@ -1613,6 +1632,7 @@ function AttendancePanel({
   date,
   endDate,
   records,
+  history,
   sites,
   search,
   loading,
@@ -1625,6 +1645,7 @@ function AttendancePanel({
   date: string;
   endDate: string;
   records: AttendanceRecord[];
+  history: AttendanceHistoryEntry[];
   sites: Site[];
   search: string;
   loading: boolean;
@@ -1632,7 +1653,7 @@ function AttendancePanel({
   onDateChange: (date: string) => void;
   onEndDateChange: (date: string) => void;
   onChange: (records: AttendanceRecord[]) => void;
-  onSave: (records: AttendanceRecord[], endDate?: string) => void;
+  onSave: (records: AttendanceRecord[], endDate?: string, siteId?: string) => void;
 }) {
   const [selectedAttendanceSite, setSelectedAttendanceSite] = useState('all');
   const [dateSelectionMode, setDateSelectionMode] = useState<'single' | 'between'>('single');
@@ -1706,7 +1727,7 @@ function AttendancePanel({
           <Check size={16} />
           Mark all present
         </button>
-        <button className="dark-button" type="button" onClick={() => onSave(siteRecords, dateSelectionMode === 'between' ? endDate : date)} disabled={loading || saving || siteRecords.length === 0}>
+        <button className="dark-button" type="button" onClick={() => onSave(siteRecords, dateSelectionMode === 'between' ? endDate : date, selectedAttendanceSite)} disabled={loading || saving || siteRecords.length === 0}>
           <Save size={16} />
           {saving ? 'Saving...' : 'Save attendance'}
         </button>
@@ -1779,6 +1800,43 @@ function AttendancePanel({
                     onChange={(event) => updateRecord(record.employee_id, { notes: event.target.value })}
                     placeholder="Optional note"
                   />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <SectionHeader title="Attendance history" action={`${history.length} saved`} />
+      <div className="table-shell">
+        <table className="salary-table attendance-history-table">
+          <thead>
+            <tr>
+              <th>Saved</th>
+              <th>Date range</th>
+              <th>Work site</th>
+              <th>Employees</th>
+              <th aria-label="Download" />
+            </tr>
+          </thead>
+          <tbody>
+            {history.length === 0 ? (
+              <tr className="empty-table-row"><td colSpan={5}>No saved attendance history yet</td></tr>
+            ) : history.map((entry) => (
+              <tr key={entry.id}>
+                <td>{entry.created_at}</td>
+                <td>{entry.start_date === entry.end_date ? entry.start_date : `${entry.start_date} to ${entry.end_date}`}</td>
+                <td>{entry.site_name}</td>
+                <td>{entry.employee_count}</td>
+                <td>
+                  <a
+                    className="icon-button small"
+                    title="Download saved attendance PDF"
+                    aria-label={`Download attendance history ${entry.id}`}
+                    href={`/api/reports/attendance?date=${entry.start_date}&end_date=${entry.end_date}&site_id=${entry.site_id || 'all'}`}
+                  >
+                    <Download size={15} />
+                  </a>
                 </td>
               </tr>
             ))}

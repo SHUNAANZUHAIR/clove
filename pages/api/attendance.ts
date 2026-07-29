@@ -6,8 +6,22 @@ const allowedStatuses = new Set(['present', 'absent', 'leave', 'off']);
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     await ensureAttendanceTable();
+    await ensureAttendanceHistoryTable();
 
     if (req.method === 'GET') {
+      if (singleValue(req.query.history) === '1') {
+        const history = await query(`
+          SELECT h.id, to_char(h.start_date, 'YYYY-MM-DD') AS start_date,
+            to_char(h.end_date, 'YYYY-MM-DD') AS end_date, h.site_id,
+            COALESCE(s.name, 'All sites') AS site_name, h.employee_count,
+            to_char(h.created_at, 'YYYY-MM-DD HH24:MI') AS created_at
+          FROM attendance_save_history h
+          LEFT JOIN sites s ON s.id = h.site_id
+          ORDER BY h.created_at DESC, h.id DESC
+          LIMIT 50
+        `);
+        return res.status(200).json(history.rows);
+      }
       const date = normalizeDate(req.query.date);
       if (!date) return res.status(400).json({ error: 'A valid attendance date is required' });
 
@@ -76,7 +90,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes,
           in_time = EXCLUDED.in_time, out_time = EXCLUDED.out_time, updated_at = CURRENT_TIMESTAMP
       `, params);
-      return res.status(200).json({ success: true, saved: rows.length, dates: dates.length });
+      const requestedSiteId = Number(req.body.site_id);
+      const siteId = Number.isInteger(requestedSiteId) && requestedSiteId > 0 ? requestedSiteId : null;
+      const employeeIds = Array.from(new Set(rows.map((row) => row[0])));
+      const orderedDates = [...dates].sort();
+      const history = await query(`
+        INSERT INTO attendance_save_history (start_date, end_date, site_id, employee_count)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, to_char(start_date, 'YYYY-MM-DD') AS start_date,
+          to_char(end_date, 'YYYY-MM-DD') AS end_date, site_id, employee_count,
+          to_char(created_at, 'YYYY-MM-DD HH24:MI') AS created_at
+      `, [orderedDates[0], orderedDates[orderedDates.length - 1], siteId, employeeIds.length]);
+      return res.status(200).json({ success: true, saved: rows.length, dates: dates.length, history: history.rows[0] });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
@@ -114,6 +139,23 @@ function normalizeTime(value: unknown) {
   return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : null;
 }
 
+async function ensureAttendanceHistoryTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS attendance_save_history (
+      id SERIAL PRIMARY KEY,
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      site_id INTEGER REFERENCES sites(id) ON DELETE SET NULL,
+      employee_count INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+}
+
 function isFridayDate(value: string) {
   return new Date(`${value}T00:00:00Z`).getUTCDay() === 5;
+}
+
+function singleValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
 }
