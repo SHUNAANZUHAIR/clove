@@ -152,3 +152,14 @@ ON CONFLICT (employee_id, month, year) DO NOTHING;
 SELECT setval('sites_id_seq', COALESCE((SELECT MAX(id) FROM sites), 1));
 SELECT setval('employees_id_seq', COALESCE((SELECT MAX(id) FROM employees), 1));
 SELECT setval('salary_transactions_id_seq', COALESCE((SELECT MAX(id) FROM salary_transactions), 1));
+
+
+-- Per-site login passwords (bcrypt hashes). NULL means the site falls back to the
+-- super-admin-configured temporary password stored in app_settings below.
+ALTER TABLE sites ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
+-- Simple key/value store for app-wide settings (currently just the temp site password hash).
+CREATE TABLE IF NOT EXISTS app_settings (
+    key VARCHAR(100) PRIMARY KEY,
+    value TEXT
+);
