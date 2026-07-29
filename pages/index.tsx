@@ -876,6 +876,10 @@ export default function Home() {
                         <Download size={15} />
                         PDF
                       </a>
+                      <a className="soft-button compact" href="/api/reports/agreement?all=1">
+                        <Download size={15} />
+                        All agreements
+                      </a>
                     </span>
                   )}
                 />

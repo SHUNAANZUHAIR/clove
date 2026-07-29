@@ -41,31 +41,32 @@ const defaultDescriptions: Record<string, string> = {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-  const employeeId = Number(Array.isArray(req.query.employee_id) ? req.query.employee_id[0] : req.query.employee_id);
-  if (!Number.isInteger(employeeId) || employeeId <= 0) return res.status(400).json({ error: 'Employee is required' });
+  const employeeIds = normalizeEmployeeIds(req.query.employee_ids, req.query.employee_id);
+  const downloadAll = singleValue(req.query.all) === '1';
+  if (!downloadAll && employeeIds.length === 0) return res.status(400).json({ error: 'Employee is required' });
   try {
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS job_description TEXT');
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS agreement_verification_token VARCHAR(64) UNIQUE');
+    const whereClause = downloadAll ? '' : 'WHERE e.id = ANY($1::int[])';
+    const params = downloadAll ? [] : [employeeIds];
     const result = await query(`SELECT e.*, e.salary::float AS salary,
       to_char(e.join_date, 'YYYY-MM-DD') AS join_date, to_char(e.fixed_term_end, 'YYYY-MM-DD') AS fixed_term_end,
       e.hours_per_day::float AS hours_per_day, e.hours_per_week::float AS hours_per_week, s.name AS site_name
-      FROM employees e LEFT JOIN sites s ON s.id = e.site_id WHERE e.id = $1`, [employeeId]);
-    if (result.rowCount === 0) return res.status(404).json({ error: 'Employee not found' });
-    const employee = result.rows[0] as AgreementEmployee;
-    if (!employee.agreement_verification_token) {
-      const candidateToken = randomBytes(16).toString('hex');
-      const tokenResult = await query(`UPDATE employees SET agreement_verification_token = $1
-        WHERE id = $2 AND agreement_verification_token IS NULL
-        RETURNING agreement_verification_token`, [candidateToken, employee.id]);
-      if (tokenResult.rowCount > 0) employee.agreement_verification_token = tokenResult.rows[0].agreement_verification_token;
-      else {
-        const existingToken = await query('SELECT agreement_verification_token FROM employees WHERE id = $1', [employee.id]);
-        employee.agreement_verification_token = existingToken.rows[0]?.agreement_verification_token || candidateToken;
-      }
+      FROM employees e LEFT JOIN sites s ON s.id = e.site_id
+      ${whereClause}
+      ORDER BY e.join_date ASC NULLS LAST, LOWER(e.name) ASC`, params);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'No employees found' });
+    if (result.rows.length > 250) return res.status(400).json({ error: 'A maximum of 250 agreements can be downloaded together' });
+    const employees = result.rows as AgreementEmployee[];
+    const agreements: Array<{ employee: AgreementEmployee; verificationUrl: string }> = [];
+    for (const employee of employees) {
+      if (!employee.agreement_verification_token) employee.agreement_verification_token = await ensureVerificationToken(employee.id);
+      const verificationUrl = `https://clovehr.vercel.app/verify-agreement/${employee.agreement_verification_token}`;
+      agreements.push({ employee, verificationUrl });
     }
-    const verificationUrl = `https://clovehr.vercel.app/verify-agreement/${employee.agreement_verification_token}`;
-    const pdf = createAgreementPdf(employee, verificationUrl);
-    const safeName = sanitize(employee.name).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') || `employee-${employee.id}`;
+    const pdf = createAgreementsPdf(agreements);
+    const single = employees.length === 1;
+    const safeName = single ? sanitize(employees[0].name).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') : 'All-Employees';
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Employment-Agreement-${safeName}.pdf"`);
     res.setHeader('Content-Length', pdf.length);
@@ -78,6 +79,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 export function createAgreementPdf(employee: AgreementEmployee, verificationUrl?: string) {
+  return buildPdf(createAgreementPages(employee, verificationUrl));
+}
+
+export function createAgreementsPdf(agreements: Array<{ employee: AgreementEmployee; verificationUrl?: string }>) {
+  return buildPdf(agreements.flatMap(({ employee, verificationUrl }) => createAgreementPages(employee, verificationUrl)));
+}
+
+function createAgreementPages(employee: AgreementEmployee, verificationUrl?: string) {
   const title = value(employee.job_title || jobLevelLabel(employee.job_level));
   const description = value(employee.job_description || defaultDescriptions[employee.job_title || ''], 'Duties will be assigned according to the employee position.');
   const employmentTerm = employee.employment_status === 'fixed_term' ? `[X] Fixed-term ending on ${value(employee.fixed_term_end)}` : '[X] Indefinite/permanent';
@@ -124,10 +133,10 @@ export function createAgreementPdf(employee: AgreementEmployee, verificationUrl?
       },
     },
   ];
-  return renderDocument(sections, verificationUrl);
+  return renderDocumentPages(sections, verificationUrl);
 }
 
-function renderDocument(sections: AgreementSection[], verificationUrl?: string) {
+function renderDocumentPages(sections: AgreementSection[], verificationUrl?: string) {
   const pages: string[] = [];
   let content = '';
   let y = 44;
@@ -227,9 +236,9 @@ function renderDocument(sections: AgreementSection[], verificationUrl?: string) 
     pages[0] += drawText(pageWidth - margin - 122, 39, 'VERIFY', 6.5, true, '0.28 0.35 0.38');
     pages[0] += drawQrCode(createQrMatrix(verificationUrl), pageWidth - margin - 58, 7, 1.15);
   }
-  return buildPdf(pages.map((page, index) => page + drawLine(margin, footerY - 10, pageWidth - margin, footerY - 10, '0.84 0.84 0.84')
+  return pages.map((page, index) => page + drawLine(margin, footerY - 10, pageWidth - margin, footerY - 10, '0.84 0.84 0.84')
     + drawText(margin, footerY + 4, 'Clove Cafe & Bistro - Employment Agreement', 8, false, '0.40 0.40 0.40')
-    + drawText(pageWidth - margin - 75, footerY + 4, `Page ${index + 1} of ${pages.length}`, 8, false, '0.40 0.40 0.40')));
+    + drawText(pageWidth - margin - 75, footerY + 4, `Page ${index + 1} of ${pages.length}`, 8, false, '0.40 0.40 0.40'));
 }
 
 function buildPdf(pageContents: string[]) {
@@ -246,6 +255,24 @@ function buildPdf(pageContents: string[]) {
   const xref = Buffer.byteLength(pdf, 'latin1'); pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
   for (let index = 1; index <= objects.length; index += 1) pdf += `${String(offsets[index]).padStart(10, '0')} 00000 n \n`;
   pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`; return Buffer.from(pdf, 'latin1');
+}
+
+async function ensureVerificationToken(employeeId: number) {
+  const candidateToken = randomBytes(16).toString('hex');
+  const updated = await query(`UPDATE employees SET agreement_verification_token = $1
+    WHERE id = $2 AND agreement_verification_token IS NULL RETURNING agreement_verification_token`, [candidateToken, employeeId]);
+  if (updated.rowCount > 0) return updated.rows[0].agreement_verification_token as string;
+  const existing = await query('SELECT agreement_verification_token FROM employees WHERE id = $1', [employeeId]);
+  return existing.rows[0]?.agreement_verification_token || candidateToken;
+}
+
+function normalizeEmployeeIds(multiple: string | string[] | undefined, single: string | string[] | undefined) {
+  const value = Array.isArray(multiple) ? multiple.join(',') : multiple || (Array.isArray(single) ? single[0] : single) || '';
+  return Array.from(new Set(value.split(',').map(Number).filter((id) => Number.isInteger(id) && id > 0)));
+}
+
+function singleValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
 }
 
 function drawText(x: number, top: number, text: string, size: number, bold = false, color = '0.08 0.08 0.08', font?: 'F1' | 'F2' | 'F3') { return `BT /${font || (bold ? 'F2' : 'F1')} ${size} Tf ${color} rg ${num(x)} ${num(pageHeight - top)} Td (${escapePdf(text)}) Tj ET\n`; }
