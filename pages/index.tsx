@@ -870,6 +870,15 @@ export default function Home() {
             <button className="icon-button" title="Notifications" type="button">
               <Bell size={18} />
             </button>
+            <button
+              className={`icon-button${activeTab === 'site' ? ' is-active' : ''}`}
+              title="Sites"
+              aria-label="Open Sites"
+              type="button"
+              onClick={() => setActiveTab('site')}
+            >
+              <MapPin size={18} />
+            </button>
             <button className="icon-button" title="Calendar" type="button">
               <CalendarDays size={18} />
             </button>
@@ -888,10 +897,6 @@ export default function Home() {
           <button className={activeTab === 'attendance' ? 'is-active' : ''} onClick={() => setActiveTab('attendance')} type="button">
             <ClipboardCheck size={17} />
             Attendance
-          </button>
-          <button className={activeTab === 'site' ? 'is-active' : ''} onClick={() => setActiveTab('site')} type="button">
-            <MapPin size={17} />
-            Sites
           </button>
         </nav>
 

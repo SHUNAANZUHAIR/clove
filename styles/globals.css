@@ -233,6 +233,12 @@ button:disabled {
   height: 28px;
 }
 
+.icon-button.is-active {
+  border-color: var(--primary-line);
+  color: var(--primary-ink);
+  background: var(--primary);
+}
+
 
 .icon-button.dark {
   color: var(--primary-ink);
