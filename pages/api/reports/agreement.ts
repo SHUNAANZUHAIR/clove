@@ -117,7 +117,7 @@ export function createAgreementPdf(employee: AgreementEmployee, verificationUrl?
     { heading: '11. TERMINATION AND NOTICE', text: `After probation, either party may terminate this Agreement by written notice, or payment in lieu where lawful, using at least the statutory notice period or any longer period written here: ${value(employee.notice_period, 'As required by law')}.` },
     { heading: '12. GOVERNING LAW AND ENTIRE AGREEMENT', text: 'This Agreement is governed by the laws of the Republic of Maldives, including the Employment Act and applicable regulations. Any less favorable term shall be replaced by the applicable mandatory statutory right. Changes must be in writing and signed by both parties.' },
     {
-      heading: 'SIGNATURES',
+      heading: 'DIGITAL VERIFICATION',
       signatures: {
         employerName: value(employee.employer_signatory),
         employeeName: value(employee.name),
@@ -189,21 +189,18 @@ function renderDocument(sections: AgreementSection[], verificationUrl?: string) 
     content += drawText(margin + 9, y + 15, heading, 10.2, true, '0.10 0.25 0.34');
     y += 32;
   };
-  const addSignaturePanel = (signatures: { employerName: string; employeeName: string }) => {
-    ensureSpace(150);
+  const addSignaturePanel = (_signatures: { employerName: string; employeeName: string }) => {
+    ensureSpace(116);
     const panelTop = y;
-    content += drawRect(margin, panelTop, contentWidth, 145, '0.985 0.985 0.98');
-    content += drawLine(margin, panelTop, pageWidth - margin, panelTop, '0.72 0.72 0.70');
-    content += drawLine(margin, panelTop + 145, pageWidth - margin, panelTop + 145, '0.72 0.72 0.70');
-    content += drawText(margin + 12, panelTop + 19, 'EMPLOYEE DIGITAL SIGNATURE PREVIEW', 8.5, true, '0.30 0.30 0.30');
-    content += drawText(margin + 12, panelTop + 50, signatures.employeeName, 19, false, '0.10 0.25 0.38', 'F3');
-    content += drawLine(margin + 12, panelTop + 60, margin + 250, panelTop + 60, '0.35 0.35 0.35');
-    content += drawText(margin + 12, panelTop + 75, 'Generated from the employee record - requires employee confirmation.', 7.8, false, '0.45 0.45 0.45');
-    content += drawText(margin + 12, panelTop + 98, `Employee: ${signatures.employeeName}`, 9);
-    content += drawText(margin + 12, panelTop + 122, 'Confirmed signature: __________________________', 9);
-    content += drawText(pageWidth - margin - 160, panelTop + 122, 'Date: _______________', 9);
-    content += drawText(margin + 12, panelTop + 139, `For the Employer: ${signatures.employerName}`, 8.5, false, '0.35 0.35 0.35');
-    y = panelTop + 157;
+    const panelHeight = 104;
+    content += drawRect(margin, panelTop, contentWidth, panelHeight, '0.94 0.97 0.98');
+    content += drawLine(margin, panelTop, margin, panelTop + panelHeight, '0.18 0.42 0.55');
+    content += drawText(margin + 14, panelTop + 24, 'DIGITALLY VERIFIED AND CONFIRMED', 10.5, true, '0.10 0.30 0.39');
+    content += drawText(margin + 14, panelTop + 47, 'This agreement is digitally managed by CloveHR.', 9, false, '0.24 0.34 0.38');
+    content += drawText(margin + 14, panelTop + 66, 'Scan the QR code to verify the employee and employment record.', 8.5, false, '0.30 0.38 0.42');
+    content += drawText(margin + 14, panelTop + 85, 'The QR verification does not provide access to the private HR database.', 8, false, '0.38 0.42 0.44');
+    if (verificationUrl) content += drawQrCode(createQrMatrix(verificationUrl), pageWidth - margin - 82, panelTop + 7, 1.35);
+    y = panelTop + panelHeight + 12;
   };
   newPage();
   content += drawCentered('EMPLOYMENT AGREEMENT', 82, 17, true);
