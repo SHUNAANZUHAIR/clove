@@ -341,6 +341,7 @@ export default function Home() {
   const [attendanceSaving, setAttendanceSaving] = useState(false);
 
   const [profileForm, setProfileForm] = useState(emptyProfileForm);
+  const [employeeFormExpanded, setEmployeeFormExpanded] = useState(false);
   const [employeeSaveStatus, setEmployeeSaveStatus] = useState('');
   const [salaryForm, setSalaryForm] = useState(freshSalaryForm);
   const [salaryFilter, setSalaryFilter] = useState({ month: 'all', status: 'all' });
@@ -961,11 +962,13 @@ export default function Home() {
                         onEdit={(employee) => {
                           setEmployeeSaveStatus('');
                           setProfileForm(employeeToProfileForm(employee));
+                          setEmployeeFormExpanded(true);
                           requestAnimationFrame(() => document.getElementById('employee-onboarding')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
                         }}
                         onDuplicate={(employee) => {
                           setEmployeeSaveStatus('');
                           setProfileForm(employeeToProfileForm(employee, true));
+                          setEmployeeFormExpanded(true);
                           requestAnimationFrame(() => document.getElementById('employee-onboarding')?.scrollIntoView({ behavior: 'smooth' }));
                         }}
                         onDelete={handleDeleteEmployee}
@@ -990,6 +993,7 @@ export default function Home() {
                   employeesSites={sites}
                   employeeGroups={employeeGroups}
                   form={profileForm}
+                  expanded={employeeFormExpanded}
                   saveStatus={employeeSaveStatus}
                   previousEmployee={editingEmployeeIndex > 0 ? orderedTeamEmployees[editingEmployeeIndex - 1] : null}
                   nextEmployee={editingEmployeeIndex >= 0 && editingEmployeeIndex < orderedTeamEmployees.length - 1 ? orderedTeamEmployees[editingEmployeeIndex + 1] : null}
@@ -1011,9 +1015,11 @@ export default function Home() {
                   onTerminate={handleEmployeeTermination}
                   onAddGroup={addEmployeeGroup}
                   onRenameGroup={renameEmployeeGroup}
+                  onToggle={() => setEmployeeFormExpanded((current) => !current)}
                   onCancel={() => {
                     setEmployeeSaveStatus('');
                     setProfileForm(emptyProfileForm);
+                    setEmployeeFormExpanded(false);
                   }}
                 />
               </>
@@ -1526,6 +1532,7 @@ function EmployeeForm({
   employeesSites,
   employeeGroups,
   form,
+  expanded,
   saveStatus,
   previousEmployee,
   nextEmployee,
@@ -1538,11 +1545,13 @@ function EmployeeForm({
   onTerminate,
   onAddGroup,
   onRenameGroup,
+  onToggle,
   onCancel,
 }: {
   employeesSites: Site[];
   employeeGroups: Array<{ value: EmployeeType; label: string }>;
   form: typeof emptyProfileForm;
+  expanded: boolean;
   saveStatus: string;
   previousEmployee: Employee | null;
   nextEmployee: Employee | null;
@@ -1555,6 +1564,7 @@ function EmployeeForm({
   onTerminate: (employee: Employee) => void;
   onAddGroup: () => void;
   onRenameGroup: (value: string) => void;
+  onToggle: () => void;
   onCancel: () => void;
 }) {
   const selectedWorkSite = employeesSites.find((site) => site.id.toString() === form.site_id);
@@ -1564,32 +1574,25 @@ function EmployeeForm({
     <section className="form-panel" id="employee-onboarding">
       <SectionHeader
         title={form.id ? 'Edit employee' : 'Add employee'}
-        action={form.id ? (
+        action={(
           <span className="section-actions">
-            <button
-              className="soft-button compact"
-              type="button"
-              disabled={!previousEmployee}
-              title={previousEmployee ? `Load ${previousEmployee.name}` : 'No previous employee'}
-              onClick={() => previousEmployee && onNavigate(previousEmployee)}
-            >
-              <ChevronLeft size={15} />
-              Back
-            </button>
-            <button
-              className="soft-button compact"
-              type="button"
-              disabled={!nextEmployee}
-              title={nextEmployee ? `Load ${nextEmployee.name}` : 'No next employee'}
-              onClick={() => nextEmployee && onNavigate(nextEmployee)}
-            >
-              Next
-              <ChevronRight size={15} />
+            {form.id > 0 && expanded && (
+              <>
+                <button className="soft-button compact" type="button" disabled={!previousEmployee} title={previousEmployee ? `Load ${previousEmployee.name}` : 'No previous employee'} onClick={() => previousEmployee && onNavigate(previousEmployee)}>
+                  <ChevronLeft size={15} /> Back
+                </button>
+                <button className="soft-button compact" type="button" disabled={!nextEmployee} title={nextEmployee ? `Load ${nextEmployee.name}` : 'No next employee'} onClick={() => nextEmployee && onNavigate(nextEmployee)}>
+                  Next <ChevronRight size={15} />
+                </button>
+              </>
+            )}
+            <button className="soft-button compact" type="button" onClick={onToggle}>
+              {expanded ? 'Collapse' : form.id ? 'Open editor' : 'Open onboarding'}
             </button>
           </span>
-        ) : undefined}
+        )}
       />
-      <form onSubmit={onSubmit}>
+      {expanded && <form onSubmit={onSubmit}>
         <fieldset className="form-lock-fieldset">
           <div className="form-grid">
             <label>
@@ -1785,7 +1788,7 @@ function EmployeeForm({
             </button>
           </div>
         </fieldset>
-      </form>
+      </form>}
     </section>
   );
 }
