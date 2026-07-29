@@ -10,6 +10,8 @@ interface AttendanceReportRow {
   status: string;
   in_time: string | null;
   out_time: string | null;
+  ot_in_time: string | null;
+  ot_out_time: string | null;
   notes: string;
 }
 
@@ -28,14 +30,16 @@ const footerTop = pageHeight - 48;
 const rowsPerPage = Math.floor((footerTop - 18 - tableTop - rowHeight) / rowHeight);
 const columns: PdfColumn[] = [
   { label: '#', width: 22 },
-  { label: 'Date', width: 65 },
-  { label: 'Employee', width: 135 },
-  { label: 'Passport/ID', width: 80 },
-  { label: 'Site', width: 125 },
-  { label: 'Status', width: 60 },
-  { label: 'In', width: 55 },
-  { label: 'Out', width: 55 },
-  { label: 'Notes', width: 173 },
+  { label: 'Date', width: 60 },
+  { label: 'Employee', width: 120 },
+  { label: 'Passport/ID', width: 75 },
+  { label: 'Site', width: 100 },
+  { label: 'Status', width: 55 },
+  { label: 'In', width: 45 },
+  { label: 'Out', width: 45 },
+  { label: 'OT In', width: 45 },
+  { label: 'OT Out', width: 45 },
+  { label: 'Notes', width: 108 },
 ];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -67,6 +71,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         CASE WHEN EXTRACT(ISODOW FROM d.attendance_date) = 5 THEN 'off' ELSE COALESCE(a.status, 'not marked') END AS status,
         CASE WHEN EXTRACT(ISODOW FROM d.attendance_date) = 5 THEN NULL ELSE to_char(a.in_time, 'HH24:MI') END AS in_time,
         CASE WHEN EXTRACT(ISODOW FROM d.attendance_date) = 5 THEN NULL ELSE to_char(a.out_time, 'HH24:MI') END AS out_time,
+        CASE WHEN EXTRACT(ISODOW FROM d.attendance_date) = 5 THEN NULL ELSE to_char(a.ot_in_time, 'HH24:MI') END AS ot_in_time,
+        CASE WHEN EXTRACT(ISODOW FROM d.attendance_date) = 5 THEN NULL ELSE to_char(a.ot_out_time, 'HH24:MI') END AS ot_out_time,
         COALESCE(a.notes, '') AS notes
       FROM report_dates d
       CROSS JOIN employees e
@@ -134,6 +140,8 @@ function renderPage(rows: AttendanceReportRow[], totalRows: number, startDate: s
         friday ? 'Off' : titleCase(row.status),
         friday ? '-' : row.in_time || '-',
         friday ? '-' : row.out_time || '-',
+        friday ? '-' : row.ot_in_time || '-',
+        friday ? '-' : row.ot_out_time || '-',
         row.notes || '',
       ], top, false, isAlert ? '0.72 0.08 0.08' : isOff ? '0.72 0.34 0.04' : undefined);
       content += drawLine(margin, top + rowHeight, pageWidth - margin, top + rowHeight, '0.90 0.90 0.88');
@@ -254,6 +262,8 @@ async function ensureAttendanceTable() {
       status VARCHAR(20) NOT NULL DEFAULT 'present',
       in_time TIME,
       out_time TIME,
+      ot_in_time TIME,
+      ot_out_time TIME,
       notes TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -262,4 +272,6 @@ async function ensureAttendanceTable() {
   `);
   await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS in_time TIME');
   await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS out_time TIME');
+  await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS ot_in_time TIME');
+  await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS ot_out_time TIME');
 }
