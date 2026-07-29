@@ -1,11 +1,9 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
-  CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
-  MapPin,
   Save,
   Trash2,
   UserCheck,
@@ -97,7 +95,6 @@ export function AttendancePanel({
   const [journeyOtOutTime, setJourneyOtOutTime] = useState('');
   const [attendanceConfirmation, setAttendanceConfirmation] = useState('');
   const [selectedAttendanceSite, setSelectedAttendanceSite] = useState('all');
-  const [dateSelectionMode, setDateSelectionMode] = useState<'single' | 'between'>('single');
   const friday = isFridayDate(date);
   const siteRecords = records.filter((record) => (
     selectedAttendanceSite === 'all' || record.site_id?.toString() === selectedAttendanceSite
@@ -149,6 +146,13 @@ export function AttendancePanel({
     setAttendanceConfirmation(`${targetRecords.map((record) => record.employee_name).join(', ')} — attendance recorded.`);
     setJourneyStep(4);
   };
+
+  void endDate;
+  void onEndDateChange;
+  void visibleRecords;
+  void counts;
+  void updateRecord;
+  void friday;
 
   return (
     <section className="attendance-panel" aria-label="Employee attendance tracking">
@@ -302,7 +306,7 @@ export function AttendancePanel({
   );
 }
 
-function SectionHeader({ title, action }: { title: string; action?: React.ReactNode }) {
+function SectionHeader({ title, action }: { title: string; action?: ReactNode }) {
   return (
     <div className="section-header">
       <h2>{title}</h2>
