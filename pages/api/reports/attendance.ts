@@ -124,7 +124,11 @@ function renderPage(rows: AttendanceReportRow[], totalRows: number, startDate: s
       const top = tableTop + rowHeight + index * rowHeight;
       const startsEmployee = index === 0 || rows[index - 1].employee_name !== row.employee_name;
       const friday = isFridayDate(row.attendance_date);
-      if (friday) content += drawRect(margin, top, tableWidth, rowHeight, '1 0.90 0.90');
+      const status = friday ? 'off' : row.status.toLowerCase();
+      const isAlert = status === 'absent' || status === 'leave';
+      const isOff = status === 'off';
+      if (isAlert) content += drawRect(margin, top, tableWidth, rowHeight, '1 0.90 0.90');
+      else if (isOff) content += drawRect(margin, top, tableWidth, rowHeight, '1 0.94 0.82');
       else if (index % 2 === 1) content += drawRect(margin, top, tableWidth, rowHeight, '0.98 0.98 0.97');
       if (startsEmployee) content += drawLine(margin, top, pageWidth - margin, top, '0.48 0.66 0.75');
       content += drawRowText([
@@ -137,7 +141,7 @@ function renderPage(rows: AttendanceReportRow[], totalRows: number, startDate: s
         friday ? '-' : row.in_time || '-',
         friday ? '-' : row.out_time || '-',
         row.notes || '',
-      ], top, false, friday ? '0.72 0.08 0.08' : undefined);
+      ], top, false, isAlert ? '0.72 0.08 0.08' : isOff ? '0.72 0.34 0.04' : undefined);
       content += drawLine(margin, top + rowHeight, pageWidth - margin, top + rowHeight, '0.90 0.90 0.88');
     });
   }

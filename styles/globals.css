@@ -1912,24 +1912,41 @@ button:disabled {
 .friday-attendance-note {
   margin: 0 0 12px;
   padding: 10px 12px;
-  border: 1px solid #f2b8b8;
+  border: 1px solid #edc486;
   border-radius: 10px;
-  background: #fff0f0;
-  color: #a61b1b;
+  background: #fff3df;
+  color: #a65308;
   font-weight: 700;
 }
 
-.attendance-table tbody tr.friday-attendance-row,
-.attendance-table tbody tr.friday-attendance-row:hover {
+.attendance-table tbody tr.attendance-status-absent,
+.attendance-table tbody tr.attendance-status-absent:hover,
+.attendance-table tbody tr.attendance-status-leave,
+.attendance-table tbody tr.attendance-status-leave:hover {
   background: #fff0f0;
   color: #a61b1b;
 }
 
-.attendance-table .friday-attendance-row select,
-.attendance-table .friday-attendance-row input {
+.attendance-table .attendance-status-absent select,
+.attendance-table .attendance-status-absent input,
+.attendance-table .attendance-status-leave select,
+.attendance-table .attendance-status-leave input {
   color: #a61b1b;
   border-color: #efb4b4;
   background: #fff7f7;
+}
+
+.attendance-table tbody tr.attendance-status-off,
+.attendance-table tbody tr.attendance-status-off:hover {
+  background: #fff3df;
+  color: #a65308;
+}
+
+.attendance-table .attendance-status-off select,
+.attendance-table .attendance-status-off input {
+  color: #a65308;
+  border-color: #edc486;
+  background: #fff9ef;
 }
 
 @media (max-width: 460px) {

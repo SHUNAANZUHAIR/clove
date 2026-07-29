@@ -1792,7 +1792,7 @@ function AttendancePanel({
             ) : visibleRecords.length === 0 ? (
               <tr className="empty-table-row"><td colSpan={6}>No employees found</td></tr>
             ) : visibleRecords.map((record) => (
-              <tr key={record.employee_id} className={friday ? 'friday-attendance-row' : undefined}>
+              <tr key={record.employee_id} className={`attendance-status-${friday ? 'off' : record.status}`}>
                 <td><strong>{record.employee_name}</strong><small>{record.id_number || 'No ID'}</small></td>
                 <td>{record.site_name || 'Unassigned'}</td>
                 <td>
