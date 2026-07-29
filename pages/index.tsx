@@ -1965,6 +1965,30 @@ function AttendancePanel({
             <div className="action-row"><button className="dark-button" type="button" disabled={!hasTarget} onClick={() => { setJourneyIncludedIds(scopeRecords.map((record) => record.employee_id)); setJourneyStep(2); }}>Next <ChevronRight size={16} /></button></div>
           </div>}
           {journeyStep === 2 && <div className="wizard-panel">
+            {sites.length === 1 && <div className="form-grid compact-grid attendance-person-scope">
+              <label>
+                <span>Attendance for</span>
+                <select value={attendanceScope} onChange={(event) => {
+                  const scope = event.target.value as 'employee' | 'site';
+                  setAttendanceScope(scope);
+                  setJourneyEmployeeId('');
+                  setJourneyIncludedIds(scope === 'site' ? records.map((record) => record.employee_id) : []);
+                }}>
+                  <option value="site">All site employees</option>
+                  <option value="employee">Individual employee</option>
+                </select>
+              </label>
+              {attendanceScope === 'employee' && <label>
+                <span>Select employee</span>
+                <select value={journeyEmployeeId} onChange={(event) => {
+                  setJourneyEmployeeId(event.target.value);
+                  setJourneyIncludedIds(event.target.value ? [Number(event.target.value)] : []);
+                }}>
+                  <option value="">Choose employee</option>
+                  {records.map((record) => <option key={record.employee_id} value={record.employee_id}>{record.employee_name}</option>)}
+                </select>
+              </label>}
+            </div>}
             <div className="attendance-date-strip" aria-label="Select attendance date">
               {journeyDates.map((item) => {
                 const value = localDateValue(item);
@@ -1973,7 +1997,7 @@ function AttendancePanel({
               })}
             </div>
             <button className="text-link attendance-load-more" type="button" onClick={() => setVisibleDateCount((count) => count + 5)}>Load previous 5 days</button>
-            <div className="action-row"><button className="dark-button" type="button" onClick={() => setJourneyStep(3)}>Continue <ChevronRight size={16} /></button></div>
+            <div className="action-row"><button className="dark-button" type="button" disabled={targetRecords.length === 0} onClick={() => setJourneyStep(3)}>Continue <ChevronRight size={16} /></button></div>
           </div>}
           {journeyStep === 3 && <div className="wizard-panel">
             {isFridayDate(date) ? <p className="friday-attendance-note">Friday is an off day. No in or out time will be recorded.</p> : <div className="form-grid compact-grid attendance-time-grid"><label><span>In time</span><input aria-label="Attendance in time" type="time" value={journeyInTime} onChange={(event) => setJourneyInTime(event.target.value)} /></label><label><span>Out time</span><input aria-label="Attendance out time" type="time" value={journeyOutTime} onChange={(event) => setJourneyOutTime(event.target.value)} /></label></div>}
