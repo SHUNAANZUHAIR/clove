@@ -38,6 +38,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           CASE WHEN EXTRACT(ISODOW FROM $1::date) = 5 THEN 'off' ELSE COALESCE(a.status, 'present') END AS status,
           CASE WHEN EXTRACT(ISODOW FROM $1::date) = 5 THEN NULL ELSE COALESCE(to_char(a.in_time, 'HH24:MI'), '09:00') END AS in_time,
           CASE WHEN EXTRACT(ISODOW FROM $1::date) = 5 THEN NULL ELSE COALESCE(to_char(a.out_time, 'HH24:MI'), '17:00') END AS out_time,
+          CASE WHEN EXTRACT(ISODOW FROM $1::date) = 5 THEN NULL ELSE to_char(a.ot_in_time, 'HH24:MI') END AS ot_in_time,
+          CASE WHEN EXTRACT(ISODOW FROM $1::date) = 5 THEN NULL ELSE to_char(a.ot_out_time, 'HH24:MI') END AS ot_out_time,
           COALESCE(a.notes, '') AS notes,
           a.id
         FROM employees e
@@ -51,26 +53,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === 'POST') {
       const date = normalizeDate(req.body.date);
-      const dates = Array.from(new Set<string>(
+      const dates = Array.from(new Set(
         (Array.isArray(req.body.dates) ? req.body.dates : [date])
-          .map((candidate: unknown) => normalizeDate(candidate))
-          .filter((candidate: string) => Boolean(candidate))
+          .map((candidate) => normalizeDate(candidate))
+          .filter((candidate) => Boolean(candidate))
       ));
       const records = Array.isArray(req.body.records) ? req.body.records : [];
       if (dates.length === 0) return res.status(400).json({ error: 'A valid attendance date is required' });
       if (dates.length > 31) return res.status(400).json({ error: 'Attendance ranges are limited to 31 days' });
       if (records.length === 0) return res.status(400).json({ error: 'No attendance records supplied' });
-      const requestedEmployeeIds = records.map((record: { employee_id?: unknown }) => Number(record.employee_id)).filter(Number.isInteger);
+      const requestedEmployeeIds = records.map((record) => Number(record.employee_id)).filter(Number.isInteger);
       const allowedEmployees = await query('SELECT id FROM employees WHERE ($1 = -1 OR site_id = $1) AND id = ANY($2::int[])', [authenticatedSiteId, requestedEmployeeIds]);
-      const allowedEmployeeIds = new Set(allowedEmployees.rows.map((row: { id: number }) => Number(row.id)));
+      const allowedEmployeeIds = new Set(allowedEmployees.rows.map((row) => Number(row.id)));
 
-      const rows: Array<[number, string, string, string, string | null, string | null]> = [];
+      const rows = [];
       for (const record of records) {
         const employeeId = Number(record.employee_id);
         const status = String(record.status || '').toLowerCase();
         if (!Number.isInteger(employeeId) || employeeId <= 0 || !allowedEmployeeIds.has(employeeId) || !allowedStatuses.has(status)) continue;
         const inTime = normalizeTime(record.in_time);
         const outTime = normalizeTime(record.out_time);
+        const otInTime = normalizeTime(record.ot_in_time);
+        const otOutTime = normalizeTime(record.ot_out_time);
         for (const attendanceDate of dates) {
           const friday = isFridayDate(attendanceDate);
           rows.push([
@@ -80,6 +84,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             String(record.notes || '').slice(0, 500),
             friday ? null : inTime,
             friday ? null : outTime,
+            friday ? null : otInTime,
+            friday ? null : otOutTime,
           ]);
         }
       }
@@ -87,15 +93,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const params = rows.flat();
       const placeholders = rows.map((_, index) => {
-        const offset = index * 6;
-        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6})`;
+        const offset = index * 8;
+        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8})`;
       }).join(', ');
       await query(`
-        INSERT INTO attendance (employee_id, attendance_date, status, notes, in_time, out_time)
+        INSERT INTO attendance (employee_id, attendance_date, status, notes, in_time, out_time, ot_in_time, ot_out_time)
         VALUES ${placeholders}
         ON CONFLICT (employee_id, attendance_date)
         DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes,
-          in_time = EXCLUDED.in_time, out_time = EXCLUDED.out_time, updated_at = CURRENT_TIMESTAMP
+          in_time = EXCLUDED.in_time, out_time = EXCLUDED.out_time,
+          ot_in_time = EXCLUDED.ot_in_time, ot_out_time = EXCLUDED.ot_out_time,
+          updated_at = CURRENT_TIMESTAMP
       `, params);
       const requestedSiteId = Number(req.body.site_id);
       const siteId = authenticatedSiteId === -1 && Number.isInteger(requestedSiteId) && requestedSiteId > 0 ? requestedSiteId : authenticatedSiteId;
@@ -137,6 +145,8 @@ async function ensureAttendanceTable() {
       status VARCHAR(20) NOT NULL DEFAULT 'present',
       in_time TIME,
       out_time TIME,
+      ot_in_time TIME,
+      ot_out_time TIME,
       notes TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -145,14 +155,16 @@ async function ensureAttendanceTable() {
   `);
   await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS in_time TIME');
   await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS out_time TIME');
+  await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS ot_in_time TIME');
+  await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS ot_out_time TIME');
 }
 
-function normalizeDate(value: unknown) {
+function normalizeDate(value) {
   const candidate = Array.isArray(value) ? value[0] : value;
   return typeof candidate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(candidate) ? candidate : '';
 }
 
-function normalizeTime(value: unknown) {
+function normalizeTime(value) {
   return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : null;
 }
 
@@ -169,10 +181,10 @@ async function ensureAttendanceHistoryTable() {
   `);
 }
 
-function isFridayDate(value: string) {
+function isFridayDate(value) {
   return new Date(`${value}T00:00:00Z`).getUTCDay() === 5;
 }
 
-function singleValue(value: string | string[] | undefined) {
+function singleValue(value) {
   return Array.isArray(value) ? value[0] : value;
 }
