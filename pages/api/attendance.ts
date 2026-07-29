@@ -40,6 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         FROM employees e
         LEFT JOIN sites s ON s.id = e.site_id
         LEFT JOIN attendance a ON a.employee_id = e.id AND a.attendance_date = $1
+        WHERE COALESCE(e.is_terminated, FALSE) = FALSE
         ORDER BY e.name ASC
       `, [date]);
       return res.status(200).json(result.rows);
@@ -112,6 +113,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 async function ensureAttendanceTable() {
+  await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_terminated BOOLEAN NOT NULL DEFAULT FALSE');
   await query(`
     CREATE TABLE IF NOT EXISTS attendance (
       id SERIAL PRIMARY KEY,

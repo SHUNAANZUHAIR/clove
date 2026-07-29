@@ -5,6 +5,7 @@ import { query } from '../../lib/db';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_terminated BOOLEAN NOT NULL DEFAULT FALSE');
     if (req.method === 'GET') {
       const { employee_id, month, year, status } = req.query;
       
@@ -224,7 +225,7 @@ async function getSalaryTargets(siteId?: number | string, employeeIds: number[] 
       `SELECT DISTINCT e.id, e.salary::float AS salary, to_char(e.join_date, 'YYYY-MM-DD') AS join_date
        FROM employees e
        LEFT JOIN site_team st ON st.employee_id = e.id
-       WHERE e.site_id = $1 OR st.site_id = $1
+       WHERE (e.site_id = $1 OR st.site_id = $1) AND COALESCE(e.is_terminated, FALSE) = FALSE
        ORDER BY e.id`,
       [siteId]
     );
@@ -236,7 +237,7 @@ async function getSalaryTargets(siteId?: number | string, employeeIds: number[] 
     const result = await query(
       `SELECT id, salary::float AS salary, to_char(join_date, 'YYYY-MM-DD') AS join_date
        FROM employees
-       WHERE id = ANY($1::int[])
+       WHERE id = ANY($1::int[]) AND COALESCE(is_terminated, FALSE) = FALSE
        ORDER BY id`,
       [employeeIds]
     );
@@ -248,7 +249,7 @@ async function getSalaryTargets(siteId?: number | string, employeeIds: number[] 
     const result = await query(
       `SELECT id, salary::float AS salary, to_char(join_date, 'YYYY-MM-DD') AS join_date
        FROM employees
-       WHERE COALESCE(job_level, 'labour') = $1
+       WHERE COALESCE(job_level, 'labour') = $1 AND COALESCE(is_terminated, FALSE) = FALSE
        ORDER BY id`,
       [jobLevel]
     );

@@ -1201,6 +1201,22 @@ button:disabled {
   margin-top: 10px;
 }
 
+.person-card.is-terminated {
+  border-color: #e6b7b4;
+  background: #fff7f6;
+}
+
+.employee-terminated-badge {
+  width: fit-content;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: #9f2824;
+  background: #fde5e3;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
 .agreement-select-check {
   width: 20px;
   padding-top: 0;

@@ -22,6 +22,8 @@ import {
   Search,
   SlidersHorizontal,
   Trash2,
+  UserCheck,
+  UserX,
   UsersRound,
   WalletCards,
   X,
@@ -60,6 +62,8 @@ interface Employee {
   benefit_details?: string;
   notice_period?: string;
   employer_signatory?: string;
+  is_terminated?: boolean;
+  terminated_at?: string | null;
 }
 
 interface Site {
@@ -525,6 +529,22 @@ export default function Home() {
     }
   };
 
+  const handleEmployeeTermination = async (employee: Employee) => {
+    const terminate = !employee.is_terminated;
+    const action = terminate ? 'terminate' : 'reactivate';
+    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${employee.name}?`)) return;
+    const res = await fetch('/api/employees', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: employee.id, terminated: terminate }),
+    });
+    if (!res.ok) {
+      alert(`Could not ${action} this employee.`);
+      return;
+    }
+    await fetchEmployees();
+  };
+
 	  const handleSaveSalary = async () => {
 	    const targetEmployees = getSalaryTargets(salaryForm, employees, salarySiteMemberIds);
 	    const activeBusinessYear = getBusinessYear();
@@ -943,6 +963,7 @@ export default function Home() {
                           requestAnimationFrame(() => document.getElementById('employee-onboarding')?.scrollIntoView({ behavior: 'smooth' }));
                         }}
                         onDelete={handleDeleteEmployee}
+                        onTerminate={handleEmployeeTermination}
                         onAgreementToggle={(employeeId) => setSelectedAgreementIds((current) => (
                           current.includes(employeeId)
                             ? current.filter((id) => id !== employeeId)
@@ -1317,6 +1338,7 @@ function TeamGroup({
   onEdit,
   onDuplicate,
   onDelete,
+  onTerminate,
   onAgreementToggle,
 }: {
   title: string;
@@ -1327,6 +1349,7 @@ function TeamGroup({
   onEdit: (employee: Employee) => void;
   onDuplicate: (employee: Employee) => void;
   onDelete: (id: number) => void;
+  onTerminate: (employee: Employee) => void;
   onAgreementToggle: (id: number) => void;
 }) {
   const visibleEmployees = expanded ? employees : employees.slice(0, collapsedEmployeeLimit);
@@ -1350,7 +1373,7 @@ function TeamGroup({
           <div className="empty-state compact">No employees</div>
         ) : (
           visibleEmployees.map((employee, index) => (
-            <article className="person-card" key={employee.id}>
+            <article className={`person-card${employee.is_terminated ? ' is-terminated' : ''}`} key={employee.id}>
               <label className="check-shell agreement-select-check" title={`Select agreement for ${employee.name}`}>
                 <input
                   type="checkbox"
@@ -1363,6 +1386,7 @@ function TeamGroup({
               <Avatar employee={employee} />
               <div className="card-main">
                 <strong>{employee.name}</strong>
+                {employee.is_terminated && <span className="employee-terminated-badge">TERMINATED{employee.terminated_at ? ` · ${formatDate(employee.terminated_at)}` : ''}</span>}
                 <span>{employee.site_name || 'Unassigned'} / {formatCurrency(employee.salary)}</span>
                 <small>
                   {employee.id_number || 'No ID'} / {jobLevelLabel(employee.job_level)} / {paymentLabel(employee.medium)}
@@ -1399,6 +1423,15 @@ function TeamGroup({
                   onClick={() => onEdit(employee)}
                 >
                   <Pencil size={15} />
+                </button>
+                <button
+                  className={`icon-button small${employee.is_terminated ? '' : ' danger'}`}
+                  title={employee.is_terminated ? 'Reactivate employee' : 'Terminate employee'}
+                  aria-label={employee.is_terminated ? `Reactivate ${employee.name}` : `Terminate ${employee.name}`}
+                  type="button"
+                  onClick={() => onTerminate(employee)}
+                >
+                  {employee.is_terminated ? <UserCheck size={15} /> : <UserX size={15} />}
                 </button>
                 <button
                   className="icon-button small danger"
@@ -2463,11 +2496,11 @@ function getSalaryTargets(
     const siteId = Number(form.site_id || 0);
     if (!siteId) return [];
 
-    return employees.filter((employee) => employee.site_id === siteId || salarySiteMemberIds.includes(employee.id));
+    return employees.filter((employee) => !employee.is_terminated && (employee.site_id === siteId || salarySiteMemberIds.includes(employee.id)));
   }
 
   const employeeIds = getSalaryEmployeeIds(form);
-  return employees.filter((employee) => employeeIds.includes(employee.id));
+  return employees.filter((employee) => !employee.is_terminated && employeeIds.includes(employee.id));
 }
 
 function withSalaryCalculations(

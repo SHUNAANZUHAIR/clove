@@ -55,10 +55,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const params: Array<string | number> = [startDate, endDate];
-    let siteFilter = '';
+    let siteFilter = 'WHERE (COALESCE(e.is_terminated, FALSE) = FALSE OR d.attendance_date <= e.terminated_at)';
     if (siteId) {
       params.push(siteId);
-      siteFilter = `WHERE e.site_id = $${params.length}`;
+      siteFilter += ` AND e.site_id = $${params.length}`;
     }
 
     const result = await query(`
@@ -250,6 +250,8 @@ function number(value: number) {
 }
 
 async function ensureAttendanceTable() {
+  await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_terminated BOOLEAN NOT NULL DEFAULT FALSE');
+  await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS terminated_at DATE');
   await query(`
     CREATE TABLE IF NOT EXISTS attendance (
       id SERIAL PRIMARY KEY,

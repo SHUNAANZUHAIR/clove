@@ -26,6 +26,8 @@ async function ensureAgreementColumns() {
   for (const [name, definition] of agreementColumns) {
     await query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS ${name} ${definition}`);
   }
+  await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_terminated BOOLEAN NOT NULL DEFAULT FALSE');
+  await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS terminated_at DATE');
 }
 
 const normalize = (body: Record<string, unknown>): Record<string, unknown> => ({
@@ -61,10 +63,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const result = await query(`SELECT e.*, e.salary::float AS salary,
         to_char(e.birth_date, 'YYYY-MM-DD') AS birth_date,
         to_char(e.join_date, 'YYYY-MM-DD') AS join_date,
+        to_char(e.terminated_at, 'YYYY-MM-DD') AS terminated_at,
         to_char(e.fixed_term_end, 'YYYY-MM-DD') AS fixed_term_end,
         e.hours_per_day::float AS hours_per_day, e.hours_per_week::float AS hours_per_week,
         s.name AS site_name FROM employees e LEFT JOIN sites s ON e.site_id = s.id ORDER BY e.id DESC`);
       return res.status(200).json(result.rows);
+    }
+
+    if (req.method === 'PATCH') {
+      const id = Number(req.body?.id);
+      const terminated = Boolean(req.body?.terminated);
+      if (!id) return res.status(400).json({ error: 'Employee id is required.' });
+      const result = await query(`UPDATE employees
+        SET is_terminated = $1, terminated_at = CASE WHEN $1 THEN CURRENT_DATE ELSE NULL END
+        WHERE id = $2
+        RETURNING id, is_terminated, to_char(terminated_at, 'YYYY-MM-DD') AS terminated_at`, [terminated, id]);
+      return result.rowCount ? res.status(200).json(result.rows[0]) : res.status(404).json({ error: 'Employee not found.' });
     }
 
     if (req.method === 'POST' || req.method === 'PUT') {
@@ -97,7 +111,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(204).end();
     }
 
-    res.setHeader('Allow', 'GET, POST, PUT, DELETE');
+    res.setHeader('Allow', 'GET, POST, PUT, PATCH, DELETE');
     return res.status(405).json({ error: 'Method not allowed.' });
   } catch (error) {
     console.error(error);
