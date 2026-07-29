@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto';
 import { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../../lib/db';
 import { createQrMatrix } from '../../../lib/qr';
+import { requestSiteId } from '../../../lib/request-auth';
 
 export interface SalarySlipRow {
   id: number;
@@ -36,6 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (transactionIds.length > 100) return res.status(400).json({ error: 'A maximum of 100 salary slips can be downloaded together' });
 
   try {
+    const siteId = requestSiteId(req);
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS agreement_verification_token VARCHAR(64) UNIQUE');
     const result = await query(`
       SELECT s.id, e.id AS employee_id, e.name AS employee_name, e.id_number, site.name AS site_name,
@@ -46,9 +48,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       FROM salary_transactions s
       JOIN employees e ON e.id = s.employee_id
       LEFT JOIN sites site ON site.id = e.site_id
-      WHERE s.id = ANY($1::int[])
+      WHERE s.id = ANY($1::int[]) AND e.site_id = $2
       ORDER BY LOWER(e.name), s.year, s.month
-    `, [transactionIds]);
+    `, [transactionIds, siteId]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Salary transactions not found' });
 
     const rows = result.rows as SalarySlipRow[];

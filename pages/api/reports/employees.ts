@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../../lib/db';
+import { requestSiteId } from '../../../lib/request-auth';
 
 
 interface EmployeeReportRow {
@@ -49,9 +50,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 
   try {
+    const siteId = requestSiteId(req);
     const employeeIds = normalizeEmployeeIds(req.query.employee_ids);
     if (employeeIds.length > 250) return res.status(400).json({ error: 'A maximum of 250 employees can be downloaded together' });
-    const whereClause = employeeIds.length > 0 ? 'WHERE e.id = ANY($1::int[])' : '';
+    const whereClause = employeeIds.length > 0 ? 'WHERE e.site_id = $1 AND e.id = ANY($2::int[])' : 'WHERE e.site_id = $1';
     const result = await query(`
       SELECT
         e.id,
@@ -65,7 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       LEFT JOIN sites s ON e.site_id = s.id
       ${whereClause}
       ORDER BY e.name ASC
-    `, employeeIds.length > 0 ? [employeeIds] : []);
+    `, employeeIds.length > 0 ? [siteId, employeeIds] : [siteId]);
 
 
     const employees = result.rows as EmployeeReportRow[];

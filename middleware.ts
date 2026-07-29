@@ -12,18 +12,20 @@ async function validSession(value?: string) {
   const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
   const expected = Array.from(new Uint8Array(signature)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
-  return expected === parts[2];
+  return expected === parts[2] ? Number(parts[0]) : 0;
 }
 
 export async function middleware(request: NextRequest) {
-  const signedIn = await validSession(request.cookies.get(cookieName)?.value);
+  const siteId = await validSession(request.cookies.get(cookieName)?.value);
   const pathname = request.nextUrl.pathname.replace(/\/$/, '') || '/';
-  if (pathname === '/login') return signedIn ? NextResponse.redirect(new URL('/', request.url)) : NextResponse.next();
-  if (!signedIn) {
+  if (pathname === '/login') return siteId ? NextResponse.redirect(new URL('/', request.url)) : NextResponse.next();
+  if (!siteId) {
     if (request.nextUrl.pathname.startsWith('/api/')) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     return NextResponse.redirect(new URL('/login', request.url));
   }
-  return NextResponse.next();
+  const headers = new Headers(request.headers);
+  headers.set('x-clovehr-site-id', String(siteId));
+  return NextResponse.next({ request: { headers } });
 }
 
 export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|api/auth|verify-agreement).*)'] };

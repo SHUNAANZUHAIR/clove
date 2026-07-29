@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../lib/db';
+import { requestSiteId } from '../../lib/request-auth';
 
 const allowedStatuses = new Set(['present', 'absent', 'leave', 'off']);
 
@@ -7,6 +8,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     await ensureAttendanceTable();
     await ensureAttendanceHistoryTable();
+    const authenticatedSiteId = requestSiteId(req);
 
     if (req.method === 'GET') {
       if (singleValue(req.query.history) === '1') {
@@ -17,9 +19,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             to_char(h.created_at, 'YYYY-MM-DD HH24:MI') AS created_at
           FROM attendance_save_history h
           LEFT JOIN sites s ON s.id = h.site_id
+          WHERE h.site_id = $1
           ORDER BY h.created_at DESC, h.id DESC
           LIMIT 50
-        `);
+        `, [authenticatedSiteId]);
         return res.status(200).json(history.rows);
       }
       const date = normalizeDate(req.query.date);
@@ -40,9 +43,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         FROM employees e
         LEFT JOIN sites s ON s.id = e.site_id
         LEFT JOIN attendance a ON a.employee_id = e.id AND a.attendance_date = $1
-        WHERE COALESCE(e.is_terminated, FALSE) = FALSE
+        WHERE COALESCE(e.is_terminated, FALSE) = FALSE AND e.site_id = $2
         ORDER BY e.name ASC
-      `, [date]);
+      `, [date, authenticatedSiteId]);
       return res.status(200).json(result.rows);
     }
 
@@ -57,12 +60,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (dates.length === 0) return res.status(400).json({ error: 'A valid attendance date is required' });
       if (dates.length > 31) return res.status(400).json({ error: 'Attendance ranges are limited to 31 days' });
       if (records.length === 0) return res.status(400).json({ error: 'No attendance records supplied' });
+      const requestedEmployeeIds = records.map((record: { employee_id?: unknown }) => Number(record.employee_id)).filter(Number.isInteger);
+      const allowedEmployees = await query('SELECT id FROM employees WHERE site_id = $1 AND id = ANY($2::int[])', [authenticatedSiteId, requestedEmployeeIds]);
+      const allowedEmployeeIds = new Set(allowedEmployees.rows.map((row: { id: number }) => Number(row.id)));
 
       const rows: Array<[number, string, string, string, string | null, string | null]> = [];
       for (const record of records) {
         const employeeId = Number(record.employee_id);
         const status = String(record.status || '').toLowerCase();
-        if (!Number.isInteger(employeeId) || employeeId <= 0 || !allowedStatuses.has(status)) continue;
+        if (!Number.isInteger(employeeId) || employeeId <= 0 || !allowedEmployeeIds.has(employeeId) || !allowedStatuses.has(status)) continue;
         const inTime = normalizeTime(record.in_time);
         const outTime = normalizeTime(record.out_time);
         for (const attendanceDate of dates) {
@@ -91,8 +97,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes,
           in_time = EXCLUDED.in_time, out_time = EXCLUDED.out_time, updated_at = CURRENT_TIMESTAMP
       `, params);
-      const requestedSiteId = Number(req.body.site_id);
-      const siteId = Number.isInteger(requestedSiteId) && requestedSiteId > 0 ? requestedSiteId : null;
+      const siteId = authenticatedSiteId;
       const employeeIds = Array.from(new Set(rows.map((row) => row[0])));
       const orderedDates = [...dates].sort();
       const history = await query(`
@@ -108,7 +113,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === 'DELETE') {
       const id = Number(singleValue(req.query.id));
       if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'A valid history id is required' });
-      const result = await query('DELETE FROM attendance_save_history WHERE id = $1 RETURNING id', [id]);
+      const result = await query('DELETE FROM attendance_save_history WHERE id = $1 AND site_id = $2 RETURNING id', [id, authenticatedSiteId]);
       return result.rowCount
         ? res.status(200).json({ success: true })
         : res.status(404).json({ error: 'Attendance history record not found' });

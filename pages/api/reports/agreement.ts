@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { randomBytes } from 'crypto';
 import { query } from '../../../lib/db';
 import { createQrMatrix } from '../../../lib/qr';
+import { requestSiteId } from '../../../lib/request-auth';
 
 interface AgreementEmployee {
   id: number; name: string; salary: number; id_number: string | null; join_date: string | null;
@@ -45,10 +46,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const downloadAll = singleValue(req.query.all) === '1';
   if (!downloadAll && employeeIds.length === 0) return res.status(400).json({ error: 'Employee is required' });
   try {
+    const siteId = requestSiteId(req);
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS job_description TEXT');
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS agreement_verification_token VARCHAR(64) UNIQUE');
-    const whereClause = downloadAll ? '' : 'WHERE e.id = ANY($1::int[])';
-    const params = downloadAll ? [] : [employeeIds];
+    const whereClause = downloadAll ? 'WHERE e.site_id = $1' : 'WHERE e.site_id = $1 AND e.id = ANY($2::int[])';
+    const params = downloadAll ? [siteId] : [siteId, employeeIds];
     const result = await query(`SELECT e.*, e.salary::float AS salary,
       to_char(e.join_date, 'YYYY-MM-DD') AS join_date, to_char(e.fixed_term_end, 'YYYY-MM-DD') AS fixed_term_end,
       e.hours_per_day::float AS hours_per_day, e.hours_per_week::float AS hours_per_week, s.name AS site_name

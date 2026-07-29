@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../../lib/db';
+import { requestSiteId } from '../../../lib/request-auth';
 
 interface SalaryReportRow {
   employee_name: string;
@@ -46,10 +47,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
+    const siteId = requestSiteId(req);
     const month = singleValue(req.query.month);
     const status = singleValue(req.query.status);
-    const params: Array<string | number> = [];
-    let where = 'WHERE 1=1';
+    const params: Array<string | number> = [siteId];
+    let where = 'WHERE e.site_id = $1';
 
     if (month && month !== 'all') {
       const parsedMonth = Number(month);

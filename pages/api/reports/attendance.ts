@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../../lib/db';
+import { requestSiteId } from '../../../lib/request-auth';
 
 interface AttendanceReportRow {
   attendance_date: string;
@@ -42,24 +43,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     await ensureAttendanceTable();
+    const siteId = requestSiteId(req);
     const startDate = normalizeDate(req.query.date);
     const endDate = normalizeDate(req.query.end_date) || startDate;
     if (!startDate || !endDate) return res.status(400).json({ error: 'Valid attendance dates are required' });
     const rangeDays = inclusiveDayCount(startDate, endDate);
     if (rangeDays < 1 || rangeDays > 31) return res.status(400).json({ error: 'Date range must be between 1 and 31 days' });
 
-    const requestedSite = singleValue(req.query.site_id);
-    const siteId = requestedSite && requestedSite !== 'all' ? Number(requestedSite) : null;
-    if (requestedSite && requestedSite !== 'all' && (!Number.isInteger(siteId) || Number(siteId) <= 0)) {
-      return res.status(400).json({ error: 'Invalid site' });
-    }
-
-    const params: Array<string | number> = [startDate, endDate];
-    let siteFilter = 'WHERE (COALESCE(e.is_terminated, FALSE) = FALSE OR d.attendance_date <= e.terminated_at)';
-    if (siteId) {
-      params.push(siteId);
-      siteFilter += ` AND e.site_id = $${params.length}`;
-    }
+    const params: Array<string | number> = [startDate, endDate, siteId];
+    const siteFilter = 'WHERE (COALESCE(e.is_terminated, FALSE) = FALSE OR d.attendance_date <= e.terminated_at) AND e.site_id = $3';
 
     const result = await query(`
       WITH report_dates AS (
@@ -83,7 +75,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     `, params);
 
     const rows = result.rows as AttendanceReportRow[];
-    const siteLabel = siteId ? rows[0]?.site_name || 'Selected site' : 'All sites';
+    const siteLabel = rows[0]?.site_name || 'Selected site';
     const pdf = createAttendancePdf(rows, startDate, endDate, siteLabel);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="CloveHR-attendance-${startDate}-to-${endDate}.pdf"`);

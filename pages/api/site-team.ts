@@ -1,10 +1,12 @@
 // pages/api/site-team.ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../lib/db';
+import { requestSiteId } from '../../lib/request-auth';
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    const authenticatedSiteId = requestSiteId(req);
     if (req.method === 'GET') {
       const { siteId } = req.query;
       const result = await query(`
@@ -12,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         FROM site_team st
         JOIN employees e ON st.employee_id = e.id
         WHERE st.site_id = $1
-      `, [siteId]);
+      `, [Number(siteId) === authenticatedSiteId ? authenticatedSiteId : -1]);
       return res.status(200).json(result.rows);
     }
 
@@ -20,8 +22,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === 'POST') {
       const { site_id, employee_id } = req.body;
       const result = await query(
-        'INSERT INTO site_team (site_id, employee_id) VALUES ($1, $2) RETURNING *',
-        [site_id, employee_id]
+        `INSERT INTO site_team (site_id, employee_id)
+         SELECT $1, id FROM employees WHERE id = $2 AND site_id = $1 RETURNING *`,
+        [authenticatedSiteId, employee_id]
       );
       return res.status(201).json(result.rows[0]);
     }
@@ -29,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === 'DELETE') {
       const { id } = req.query;
-      await query('DELETE FROM site_team WHERE id=$1', [id]);
+      await query('DELETE FROM site_team WHERE id=$1 AND site_id=$2', [id, authenticatedSiteId]);
       return res.status(200).json({ success: true });
     }
 
