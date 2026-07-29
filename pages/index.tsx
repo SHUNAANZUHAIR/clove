@@ -7,6 +7,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   Check,
+  ChevronLeft,
   ChevronRight,
   CircleDollarSign,
   Clock3,
@@ -752,6 +753,11 @@ export default function Home() {
         }),
     }))
   ), [filteredEmployees]);
+  const orderedTeamEmployees = useMemo(
+    () => employeeGroupsWithEmployees.flatMap((group) => group.employees),
+    [employeeGroupsWithEmployees]
+  );
+  const editingEmployeeIndex = orderedTeamEmployees.findIndex((employee) => employee.id === profileForm.id);
 
   const filteredSites = useMemo(() => (
     sites.filter((site) => (
@@ -893,8 +899,11 @@ export default function Home() {
                 <EmployeeForm
                   employeesSites={sites}
                   form={profileForm}
+                  previousEmployee={editingEmployeeIndex > 0 ? orderedTeamEmployees[editingEmployeeIndex - 1] : null}
+                  nextEmployee={editingEmployeeIndex >= 0 && editingEmployeeIndex < orderedTeamEmployees.length - 1 ? orderedTeamEmployees[editingEmployeeIndex + 1] : null}
                   onSubmit={handleSaveEmployee}
                   onChange={setProfileForm}
+                  onNavigate={(employee) => setProfileForm(employeeToProfileForm(employee))}
                   onPhotoChange={handlePhotoChange}
                   onPhotoClear={() => setProfileForm((current) => ({ ...current, photo: '' }))}
                   onCancel={() => setProfileForm(emptyProfileForm)}
@@ -1319,16 +1328,22 @@ function TeamGroup({
 function EmployeeForm({
   employeesSites,
   form,
+  previousEmployee,
+  nextEmployee,
   onSubmit,
   onChange,
+  onNavigate,
   onPhotoChange,
   onPhotoClear,
   onCancel,
 }: {
   employeesSites: Site[];
   form: typeof emptyProfileForm;
+  previousEmployee: Employee | null;
+  nextEmployee: Employee | null;
   onSubmit: (event: FormEvent) => void;
   onChange: (form: typeof emptyProfileForm) => void;
+  onNavigate: (employee: Employee) => void;
   onPhotoChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onPhotoClear: () => void;
   onCancel: () => void;
@@ -1338,7 +1353,33 @@ function EmployeeForm({
 
   return (
     <section className="form-panel" id="employee-onboarding">
-      <SectionHeader title={form.id ? 'Edit employee' : 'Add employee'} />
+      <SectionHeader
+        title={form.id ? 'Edit employee' : 'Add employee'}
+        action={form.id ? (
+          <span className="section-actions">
+            <button
+              className="soft-button compact"
+              type="button"
+              disabled={!previousEmployee}
+              title={previousEmployee ? `Load ${previousEmployee.name}` : 'No previous employee'}
+              onClick={() => previousEmployee && onNavigate(previousEmployee)}
+            >
+              <ChevronLeft size={15} />
+              Back
+            </button>
+            <button
+              className="soft-button compact"
+              type="button"
+              disabled={!nextEmployee}
+              title={nextEmployee ? `Load ${nextEmployee.name}` : 'No next employee'}
+              onClick={() => nextEmployee && onNavigate(nextEmployee)}
+            >
+              Next
+              <ChevronRight size={15} />
+            </button>
+          </span>
+        ) : undefined}
+      />
       <form onSubmit={onSubmit}>
         <fieldset className="form-lock-fieldset">
           <div className="form-grid">
