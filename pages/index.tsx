@@ -742,7 +742,14 @@ export default function Home() {
   const employeeGroupsWithEmployees = useMemo(() => (
     employeeGroups.map((group) => ({
       ...group,
-      employees: filteredEmployees.filter((employee) => employee.employee_type === group.value),
+      employees: filteredEmployees
+        .filter((employee) => employee.employee_type === group.value)
+        .sort((first, second) => {
+          if (!first.join_date && !second.join_date) return first.name.localeCompare(second.name);
+          if (!first.join_date) return 1;
+          if (!second.join_date) return -1;
+          return first.join_date.localeCompare(second.join_date) || first.name.localeCompare(second.name);
+        }),
     }))
   ), [filteredEmployees]);
 
