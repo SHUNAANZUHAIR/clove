@@ -107,7 +107,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 	      const savedRows = [];
 	      for (const target of targets) {
-	        const calculated = calculateSalary(target.salary, worked_days, absent_days, cash_advance);
+	        const calculated = calculateSalary(
+            target.salary,
+            target.join_date,
+            salaryMonth,
+            businessYear,
+            absent_days,
+            cash_advance
+          );
         const result = await query(
           `INSERT INTO salary_transactions 
            (employee_id, month, year, worked_days, daily_rate, absent_days, 
@@ -147,7 +154,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             calculated.absent_deduction,
             calculated.cash_advance,
             calculated.net_salary,
-            status || 'pending',
+            status || 'paid',
           ]
         );
         savedRows.push(result.rows[0]);
@@ -288,15 +295,15 @@ function isSalaryMonthAfterJoinDate(joinDate: string | null, salaryMonth: number
 }
 
 
-function calculateSalary(baseSalary: number, workedDaysInput: number, absentDaysInput: number, cashAdvanceInput: number) {
-  const worked_days = Math.max(0, Number(workedDaysInput) || 0);
-  const absent_days = Math.max(0, Number(absentDaysInput) || 0);
+export function calculateSalary(baseSalary: number, joinDate: string | null, salaryMonth: number, businessYear: number, absentDaysInput: number, cashAdvanceInput: number) {
+  const eligibleDays = getEligiblePayrollDays(joinDate, salaryMonth, businessYear);
+  const absent_days = Math.min(eligibleDays, Math.max(0, Number(absentDaysInput) || 0));
+  const worked_days = Math.max(0, eligibleDays - absent_days);
   const cash_advance = roundMoney(Math.max(0, Number(cashAdvanceInput) || 0));
-  const payrollDays = Math.max(1, worked_days + absent_days);
-  const rawDailyRate = Number(baseSalary || 0) / payrollDays;
+  const rawDailyRate = Number(baseSalary || 0) / 30;
   const daily_rate = roundMoney(rawDailyRate);
   const absent_deduction = roundMoney(rawDailyRate * absent_days);
-  const net_salary = roundMoney(rawDailyRate * worked_days - cash_advance);
+  const net_salary = roundMoney(Math.max(0, rawDailyRate * worked_days - cash_advance));
 
 
   return {
@@ -307,6 +314,13 @@ function calculateSalary(baseSalary: number, workedDaysInput: number, absentDays
     cash_advance,
     net_salary,
   };
+}
+
+function getEligiblePayrollDays(joinDate: string | null, salaryMonth: number, businessYear: number) {
+  if (!joinDate) return 30;
+  const [joinYear, joinMonth, joinDay] = joinDate.slice(0, 10).split('-').map(Number);
+  if (joinYear !== businessYear || joinMonth !== salaryMonth || !Number.isInteger(joinDay)) return 30;
+  return Math.max(0, 30 - Math.min(Math.max(joinDay, 1), 30) + 1);
 }
 
 

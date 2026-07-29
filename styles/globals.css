@@ -1201,6 +1201,29 @@ button:disabled {
   margin-top: 10px;
 }
 
+.salary-site-selection,
+.salary-proration-note {
+  padding: 12px 14px;
+  border: 1px solid #c8dce5;
+  border-radius: 12px;
+  background: #f1f7fa;
+  color: #244858;
+}
+
+.salary-site-selection {
+  display: grid;
+  gap: 4px;
+}
+
+.salary-site-selection span,
+.salary-proration-note {
+  font-size: 0.86rem;
+}
+
+.salary-proration-note {
+  margin: 12px 0 0;
+}
+
 .save-confirmation {
   margin-right: auto;
   color: #237a43;

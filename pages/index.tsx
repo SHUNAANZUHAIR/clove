@@ -304,7 +304,7 @@ const freshSalaryForm = () => ({
   absent_deduction: 0,
   cash_advance: 0,
   net_salary: 0,
-  status: 'pending',
+  status: 'paid',
 });
 
 export default function Home() {
@@ -515,24 +515,22 @@ export default function Home() {
 	      return;
 	    }
 
-	    if (salaryForm.scope === 'employee') {
-	      const eligibleMonths = getCommonEligibleSalaryMonths(targetEmployees, activeBusinessYear);
-	      if (!eligibleMonths.includes(salaryForm.month)) {
-	        alert('Select a salary month from the selected employees join dates onward.');
-	        setSalaryStep(2);
-	        return;
-	      }
+	    const eligibleMonths = getCommonEligibleSalaryMonths(targetEmployees, activeBusinessYear);
+	    if (!eligibleMonths.includes(salaryForm.month)) {
+	      alert('Select a salary month from the selected employees join dates onward.');
+	      setSalaryStep(2);
+	      return;
+	    }
 
-	      const paidMonths = getPaidSalaryMonthsForEmployees(
-	        salaryTransactions,
-	        targetEmployees.map((employee) => employee.id),
-	        activeBusinessYear
-	      );
-	      if (paidMonths.has(salaryForm.month)) {
-	        alert(`${monthNames[salaryForm.month - 1]} ${activeBusinessYear} is already paid for one or more selected employees.`);
-	        setSalaryStep(2);
-	        return;
-	      }
+	    const paidMonths = getPaidSalaryMonthsForEmployees(
+	      salaryTransactions,
+	      targetEmployees.map((employee) => employee.id),
+	      activeBusinessYear
+	    );
+	    if (paidMonths.has(salaryForm.month)) {
+	      alert(`${monthNames[salaryForm.month - 1]} ${activeBusinessYear} is already paid for one or more selected employees.`);
+	      setSalaryStep(2);
+	      return;
 	    }
 
 	    const selectedEmployeeIds = getSalaryEmployeeIds(salaryForm);
@@ -555,6 +553,9 @@ export default function Home() {
     });
 
     if (res.ok) {
+      const saved = await res.json();
+      const savedRows = Array.isArray(saved) ? saved : [saved];
+      setSelectedSalaryIds(savedRows.map((row) => Number(row.id)).filter((id) => Number.isInteger(id) && id > 0));
       await fetchSalaryTransactions();
       setSalaryForm(freshSalaryForm());
       setSalaryJourneyOpen(false);
@@ -941,6 +942,7 @@ export default function Home() {
 	                <div className="salary-interface-content">
 	                  <SalaryJourney
 	                    employees={employees}
+	                    sites={sites}
 	                    salaryTransactions={salaryTransactions}
 	                    targetEmployees={salaryTargets}
 	                    form={salaryForm}
@@ -993,6 +995,15 @@ export default function Home() {
                           <Download size={15} />
                           Salary PDF
                         </a>
+                        {selectedSalaryIds.length > 0 && (
+                          <a
+                            className="soft-button compact"
+                            href={`/api/reports/salary-slip?transaction_ids=${selectedSalaryIds.join(',')}`}
+                          >
+                            <Download size={15} />
+                            Download selected slips
+                          </a>
+                        )}
                       </span>
                     )}
                   />
@@ -1776,6 +1787,7 @@ function AttendancePanel({
 
 function SalaryJourney({
   employees,
+  sites,
   salaryTransactions,
   targetEmployees,
   form,
@@ -1788,6 +1800,7 @@ function SalaryJourney({
   onChange,
 }: {
   employees: Employee[];
+  sites: Site[];
   salaryTransactions: SalaryTransaction[];
   targetEmployees: Employee[];
   form: ReturnType<typeof freshSalaryForm>;
@@ -1801,13 +1814,16 @@ function SalaryJourney({
 }) {
 	  const [showAllSalaryMonths, setShowAllSalaryMonths] = useState(false);
 	  const selectedEmployeeIds = getSalaryEmployeeIds(form);
-	  const selectedEmployees = employees.filter((employee) => selectedEmployeeIds.includes(employee.id));
+	  const selectedEmployees = form.scope === 'site'
+	    ? targetEmployees
+	    : employees.filter((employee) => selectedEmployeeIds.includes(employee.id));
 	  const targetBaseSalary = targetEmployees.reduce((sum, employee) => sum + Number(employee.salary || 0), 0);
 	  const targetLabel = selectedEmployees.length > 1
 	    ? `${selectedEmployees.length} employees selected`
 	    : selectedEmployees[0]?.name || 'No employee selected';
 	  const businessYear = getBusinessYear();
-	  const paidMonths = getPaidSalaryMonthsForEmployees(salaryTransactions, selectedEmployeeIds, businessYear);
+	  const targetEmployeeIds = selectedEmployees.map((employee) => employee.id);
+	  const paidMonths = getPaidSalaryMonthsForEmployees(salaryTransactions, targetEmployeeIds, businessYear);
 	  const eligibleMonths = getCommonEligibleSalaryMonths(selectedEmployees, businessYear);
 	  const compactMonthWindow = getCompactSalaryMonthWindow(selectedEmployees, businessYear);
 	  const compactEligibleMonths = eligibleMonths.filter((month) => compactMonthWindow.includes(month));
@@ -1919,6 +1935,38 @@ function SalaryJourney({
 	          {step === 1 && (
 	            <div className="wizard-panel">
 	              <div className="form-grid compact-grid">
+	                <label>
+	                  <span>Process salary by</span>
+	                  <select
+	                    value={form.scope}
+	                    onChange={(event) => onChange({
+	                      ...form,
+	                      scope: event.target.value as SalaryScope,
+	                      employee_id: '',
+	                      employee_ids: [],
+	                      site_id: '',
+	                    })}
+	                  >
+	                    <option value="employee">Selected employees</option>
+	                    <option value="site">Work site</option>
+	                  </select>
+	                </label>
+	                {form.scope === 'site' && (
+	                  <label>
+	                    <span>Work site</span>
+	                    <select value={form.site_id} onChange={(event) => onChange({ ...form, site_id: event.target.value })}>
+	                      <option value="">Select work site</option>
+	                      {sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
+	                    </select>
+	                  </label>
+	                )}
+	                {form.scope === 'site' && form.site_id && (
+	                  <div className="salary-site-selection wide">
+	                    <strong>{targetEmployees.length} employees automatically selected</strong>
+	                    <span>Everyone assigned to this site will be processed together.</span>
+	                  </div>
+	                )}
+	                {form.scope === 'employee' && (
 	                <div className="employee-multi-field wide">
 	                  <span>Employee</span>
 	                  <div className="employee-multi-list">
@@ -1939,6 +1987,7 @@ function SalaryJourney({
 	                    })}
 	                  </div>
 	                </div>
+	                )}
 	              </div>
 	            </div>
           )}
@@ -1951,6 +2000,7 @@ function SalaryJourney({
                 <div><dt>Basic salary</dt><dd>{formatCurrency(targetBaseSalary)}</dd></div>
                 <div><dt>Payroll days</dt><dd>{salaryPeriodDays}</dd></div>
               </dl>
+              <p className="salary-proration-note">Employees joining during the selected month are automatically paid only from their join date.</p>
               <div className="form-grid compact-grid">
                 <div className="salary-month-field wide">
                   <span>Select salary month</span>
@@ -2338,7 +2388,7 @@ function withSalaryCalculations(
     };
   }
 
-  const rows = employees.map((employee) => calculateEmployeeSalary(employee.salary, form));
+  const rows = employees.map((employee) => calculateEmployeeSalary(employee, form));
   const totalAbsentDeduction = rows.reduce((sum, row) => sum + row.absent_deduction, 0);
   const totalNetSalary = rows.reduce((sum, row) => sum + row.net_salary, 0);
   const dailyRate = form.scope !== 'employee' || rows.length > 1
@@ -2353,20 +2403,27 @@ function withSalaryCalculations(
   };
 }
 
-function calculateEmployeeSalary(baseSalary: number, form: ReturnType<typeof freshSalaryForm>) {
-  const workedDays = Math.max(0, Number(form.worked_days) || 0);
-  const absentDays = Math.max(0, Number(form.absent_days) || 0);
+function calculateEmployeeSalary(employee: Employee, form: ReturnType<typeof freshSalaryForm>) {
+  const eligibleDays = getEligiblePayrollDays(employee.join_date, form.month, form.year);
+  const absentDays = Math.min(eligibleDays, Math.max(0, Number(form.absent_days) || 0));
+  const workedDays = Math.max(0, eligibleDays - absentDays);
   const cashAdvance = Math.max(0, Number(form.cash_advance) || 0);
-  const payrollDays = Math.max(1, workedDays + absentDays);
-  const dailyRate = Number(baseSalary || 0) / payrollDays;
+  const dailyRate = Number(employee.salary || 0) / salaryPeriodDays;
   const absentDeduction = dailyRate * absentDays;
-  const netSalary = dailyRate * workedDays - cashAdvance;
+  const netSalary = Math.max(0, dailyRate * workedDays - cashAdvance);
 
   return {
     daily_rate: roundMoney(dailyRate),
     absent_deduction: roundMoney(absentDeduction),
     net_salary: roundMoney(netSalary),
   };
+}
+
+function getEligiblePayrollDays(joinDate: string | null | undefined, salaryMonth: number, businessYear: number) {
+  if (!joinDate) return salaryPeriodDays;
+  const [joinYear, joinMonth, joinDay] = joinDate.slice(0, 10).split('-').map(Number);
+  if (joinYear !== businessYear || joinMonth !== salaryMonth || !Number.isInteger(joinDay)) return salaryPeriodDays;
+  return Math.max(0, salaryPeriodDays - Math.min(Math.max(joinDay, 1), salaryPeriodDays) + 1);
 }
 
 function roundMoney(value: number) {
