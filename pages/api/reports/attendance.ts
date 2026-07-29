@@ -79,7 +79,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       LEFT JOIN sites s ON s.id = e.site_id
       LEFT JOIN attendance a ON a.employee_id = e.id AND a.attendance_date = d.attendance_date
       ${siteFilter}
-      ORDER BY d.attendance_date ASC, e.name ASC
+      ORDER BY LOWER(e.name) ASC, d.attendance_date ASC
     `, params);
 
     const rows = result.rows as AttendanceReportRow[];
@@ -96,11 +96,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-function createAttendancePdf(rows: AttendanceReportRow[], startDate: string, endDate: string, siteLabel: string) {
-  const chunks = chunkRows(rows);
+export function createAttendancePdf(rows: AttendanceReportRow[], startDate: string, endDate: string, siteLabel: string) {
+  const employeeWiseRows = [...rows].sort((left, right) => (
+    left.employee_name.localeCompare(right.employee_name, undefined, { sensitivity: 'base' })
+    || left.attendance_date.localeCompare(right.attendance_date)
+  ));
+  const chunks = chunkRows(employeeWiseRows);
   const generatedAt = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date());
   return buildPdf(chunks.map((pageRows, index) => renderPage(
-    pageRows, rows.length, startDate, endDate, siteLabel, generatedAt, index + 1, chunks.length
+    pageRows, employeeWiseRows.length, startDate, endDate, siteLabel, generatedAt, index + 1, chunks.length
   )));
 }
 
@@ -118,7 +122,9 @@ function renderPage(rows: AttendanceReportRow[], totalRows: number, startDate: s
   } else {
     rows.forEach((row, index) => {
       const top = tableTop + rowHeight + index * rowHeight;
+      const startsEmployee = index === 0 || rows[index - 1].employee_name !== row.employee_name;
       if (index % 2 === 1) content += drawRect(margin, top, tableWidth, rowHeight, '0.98 0.98 0.97');
+      if (startsEmployee) content += drawLine(margin, top, pageWidth - margin, top, '0.48 0.66 0.75');
       content += drawRowText([
         String(index + 1 + (pageNumber - 1) * rowsPerPage),
         row.attendance_date,
