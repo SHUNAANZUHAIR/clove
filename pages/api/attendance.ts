@@ -1,14 +1,26 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../lib/db';
-import { requestSiteId } from '../../lib/request-auth';
+import { requestUser, siteScope, authErrorResponse } from '../../lib/request-auth';
+import { logAudit } from '../../lib/audit';
 
 const allowedStatuses = new Set(['present', 'absent', 'leave', 'off']);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  let authUser;
+  try {
+    authUser = await requestUser(req);
+  } catch (error) {
+    const { status, body } = authErrorResponse(error);
+    return res.status(status).json(body);
+  }
+
   try {
     await ensureAttendanceTable();
     await ensureAttendanceHistoryTable();
-    const authenticatedSiteId = requestSiteId(req);
+    const authenticatedSiteId = siteScope(authUser); // -1 = admin, a site id = site manager, null = no attendance access
+    if (authenticatedSiteId === null) {
+      return res.status(403).json({ error: 'You do not manage a work site yet. Contact an administrator.' });
+    }
 
     if (req.method === 'GET') {
       if (singleValue(req.query.history) === '1') {
@@ -116,6 +128,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           to_char(end_date, 'YYYY-MM-DD') AS end_date, site_id, employee_count,
           to_char(created_at, 'YYYY-MM-DD HH24:MI') AS created_at
       `, [orderedDates[0], orderedDates[orderedDates.length - 1], siteId, employeeIds.length]);
+      await logAudit(req, {
+        user: authUser,
+        action: 'attendance.save',
+        targetType: 'attendance',
+        metadata: { dates: dates.length, employees: employeeIds.length, site_id: siteId },
+      });
       return res.status(200).json({ success: true, saved: rows.length, dates: dates.length, history: history.rows[0] });
     }
 
@@ -123,9 +141,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const id = Number(singleValue(req.query.id));
       if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'A valid history id is required' });
       const result = await query('DELETE FROM attendance_save_history WHERE id = $1 AND ($2 = -1 OR site_id = $2) RETURNING id', [id, authenticatedSiteId]);
-      return result.rowCount
-        ? res.status(200).json({ success: true })
-        : res.status(404).json({ error: 'Attendance history record not found' });
+      if (!result.rowCount) return res.status(404).json({ error: 'Attendance history record not found' });
+      await logAudit(req, { user: authUser, action: 'attendance.delete_history', targetType: 'attendance_save_history', targetId: id });
+      return res.status(200).json({ success: true });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
