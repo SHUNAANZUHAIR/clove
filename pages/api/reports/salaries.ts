@@ -1,6 +1,7 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../../lib/db';
-import { requestSiteId, isSuperAdmin } from '../../../lib/request-auth';
+import { requestUser, isAdmin, authErrorResponse } from '../../../lib/request-auth';
+import { logAudit } from '../../../lib/audit';
 
 interface SalaryReportRow {
   employee_name: string;
@@ -46,9 +47,17 @@ const columns: PdfColumn[] = [
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
+  let authUser;
   try {
-    const siteId = requestSiteId(req);
-    if (!isSuperAdmin(siteId)) return res.status(403).json({ error: 'Only super admin can access payroll.' });
+    authUser = await requestUser(req);
+  } catch (error) {
+    const { status, body } = authErrorResponse(error);
+    return res.status(status).json(body);
+  }
+
+  try {
+    if (!isAdmin(authUser)) return res.status(403).json({ error: 'Only admins can access payroll.' });
+    const siteId = -1;
     const month = singleValue(req.query.month);
     const status = singleValue(req.query.status);
     const params: Array<string | number> = [siteId];
@@ -89,6 +98,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const rows = result.rows as SalaryReportRow[];
     const pdf = createSalaryReportPdf(rows, month, status);
     const today = new Date().toISOString().slice(0, 10);
+    await logAudit(req, { user: authUser, action: 'report.download', targetType: 'salary_report', metadata: { month, status, count: rows.length } });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="CloveHR-salary-sheet-${today}.pdf"`);
     res.setHeader('Content-Length', pdf.length);

@@ -1,8 +1,9 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import { randomBytes } from 'crypto';
 import { query } from '../../../lib/db';
 import { createQrMatrix } from '../../../lib/qr';
-import { requestSiteId, isSuperAdmin } from '../../../lib/request-auth';
+import { requestUser, isAdmin, authErrorResponse } from '../../../lib/request-auth';
+import { logAudit } from '../../../lib/audit';
 
 interface AgreementEmployee {
   id: number; name: string; salary: number; id_number: string | null; join_date: string | null;
@@ -45,9 +46,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const employeeIds = normalizeEmployeeIds(req.query.employee_ids, req.query.employee_id);
   const downloadAll = singleValue(req.query.all) === '1';
   if (!downloadAll && employeeIds.length === 0) return res.status(400).json({ error: 'Employee is required' });
+
+  let authUser;
   try {
-    const siteId = requestSiteId(req);
-    if (!isSuperAdmin(siteId)) return res.status(403).json({ error: 'Only super admin can access the team workspace.' });
+    authUser = await requestUser(req);
+  } catch (error) {
+    const { status, body } = authErrorResponse(error);
+    return res.status(status).json(body);
+  }
+
+  try {
+    if (!isAdmin(authUser)) return res.status(403).json({ error: 'Only admins can access the team workspace.' });
+    const siteId = -1;
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS job_description TEXT');
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS agreement_verification_token VARCHAR(64) UNIQUE');
     const whereClause = downloadAll ? 'WHERE ($1 = -1 OR e.site_id = $1)' : 'WHERE ($1 = -1 OR e.site_id = $1) AND e.id = ANY($2::int[])';
@@ -70,6 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const pdf = createAgreementsPdf(agreements);
     const single = employees.length === 1;
     const safeName = single ? sanitize(employees[0].name).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') : 'All-Employees';
+    await logAudit(req, { user: authUser, action: 'report.download', targetType: 'agreement', metadata: { count: employees.length } });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Employment-Agreement-${safeName}.pdf"`);
     res.setHeader('Content-Length', pdf.length);
