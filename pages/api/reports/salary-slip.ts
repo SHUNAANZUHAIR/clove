@@ -1,8 +1,9 @@
 import { randomBytes } from 'crypto';
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../../lib/db';
 import { createQrMatrix } from '../../../lib/qr';
-import { requestSiteId, isSuperAdmin } from '../../../lib/request-auth';
+import { requestUser, isAdmin, authErrorResponse } from '../../../lib/request-auth';
+import { logAudit } from '../../../lib/audit';
 
 export interface SalarySlipRow {
   id: number;
@@ -36,9 +37,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (transactionIds.length === 0) return res.status(400).json({ error: 'At least one salary transaction is required' });
   if (transactionIds.length > 100) return res.status(400).json({ error: 'A maximum of 100 salary slips can be downloaded together' });
 
+  let authUser;
   try {
-    const siteId = requestSiteId(req);
-    if (!isSuperAdmin(siteId)) return res.status(403).json({ error: 'Only super admin can access payroll.' });
+    authUser = await requestUser(req);
+  } catch (error) {
+    const { status, body } = authErrorResponse(error);
+    return res.status(status).json(body);
+  }
+
+  try {
+    if (!isAdmin(authUser)) return res.status(403).json({ error: 'Only admins can access payroll.' });
+    const siteId = -1;
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS agreement_verification_token VARCHAR(64) UNIQUE');
     const result = await query(`
       SELECT s.id, e.id AS employee_id, e.name AS employee_name, e.id_number, site.name AS site_name,
@@ -63,6 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const single = rows.length === 1;
     const safeName = single ? sanitize(rows[0].employee_name).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') : 'Selected-Employees';
     const period = single ? `-${rows[0].year}-${String(rows[0].month).padStart(2, '0')}` : '';
+    await logAudit(req, { user: authUser, action: 'report.download', targetType: 'salary_slip', metadata: { transactionIds } });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="Salary-Slips-${safeName || 'Employee'}${period}.pdf"`);
     res.setHeader('Content-Length', pdf.length);
