@@ -1901,6 +1901,7 @@ function AttendancePanel({
   const [visibleDateCount, setVisibleDateCount] = useState(5);
   const [journeyInTime, setJourneyInTime] = useState('07:00');
   const [journeyOutTime, setJourneyOutTime] = useState('17:00');
+  const [journeyOtEnabled, setJourneyOtEnabled] = useState(false);
   const [journeyOtInTime, setJourneyOtInTime] = useState('');
   const [journeyOtOutTime, setJourneyOtOutTime] = useState('');
   const [attendanceConfirmation, setAttendanceConfirmation] = useState('');
@@ -1950,8 +1951,8 @@ function AttendancePanel({
       status: fridaySelection ? 'off' as const : 'present' as const,
       in_time: fridaySelection ? null : journeyInTime,
       out_time: fridaySelection ? null : journeyOutTime,
-      ot_in_time: fridaySelection ? null : (journeyOtInTime || null),
-      ot_out_time: fridaySelection ? null : (journeyOtOutTime || null),
+      ot_in_time: fridaySelection || !journeyOtEnabled ? null : (journeyOtInTime || null),
+      ot_out_time: fridaySelection || !journeyOtEnabled ? null : (journeyOtOutTime || null),
     }));
     await Promise.resolve(onSave(submittedRecords, date, attendanceScope === 'site' ? journeySiteId : 'all'));
     setAttendanceConfirmation(`${targetRecords.map((record) => record.employee_name).join(', ')} — attendance recorded.`);
@@ -1971,6 +1972,7 @@ function AttendancePanel({
           setJourneyStep(isSingleSiteLogin ? 2 : 1);
           setVisibleDateCount(5);
           setAttendanceConfirmation('');
+          setJourneyOtEnabled(false);
           setJourneyOtInTime('');
           setJourneyOtOutTime('');
         }}>
@@ -2039,7 +2041,20 @@ function AttendancePanel({
             <div className="action-row"><button className="dark-button" type="button" disabled={targetRecords.length === 0} onClick={() => setJourneyStep(3)}>Continue <ChevronRight size={16} /></button></div>
           </div>}
           {journeyStep === 3 && <div className="wizard-panel">
-            {isFridayDate(date) ? <p className="friday-attendance-note">Friday is an off day. No in or out time will be recorded.</p> : <div className="form-grid compact-grid attendance-time-grid"><label><span>In time</span><input aria-label="Attendance in time" type="time" value={journeyInTime} onChange={(event) => setJourneyInTime(event.target.value)} /></label><label><span>Out time</span><input aria-label="Attendance out time" type="time" value={journeyOutTime} onChange={(event) => setJourneyOutTime(event.target.value)} /></label><label><span>OT in time</span><input aria-label="Overtime in time" type="time" value={journeyOtInTime} onChange={(event) => setJourneyOtInTime(event.target.value)} /></label><label><span>OT out time</span><input aria-label="Overtime out time" type="time" value={journeyOtOutTime} onChange={(event) => setJourneyOtOutTime(event.target.value)} /></label></div>}
+            {isFridayDate(date) ? <p className="friday-attendance-note">Friday is an off day. No in or out time will be recorded.</p> : <>
+              <div className="form-grid compact-grid attendance-time-grid">
+                <label><span>In time</span><input aria-label="Attendance in time" type="time" value={journeyInTime} onChange={(event) => setJourneyInTime(event.target.value)} /></label>
+                <label><span>Out time</span><input aria-label="Attendance out time" type="time" value={journeyOutTime} onChange={(event) => setJourneyOutTime(event.target.value)} /></label>
+              </div>
+              <label className="attendance-ot-toggle"><input type="checkbox" checked={journeyOtEnabled} onChange={(event) => {
+                setJourneyOtEnabled(event.target.checked);
+                if (!event.target.checked) { setJourneyOtInTime(''); setJourneyOtOutTime(''); }
+              }} /><span>Enable OT</span></label>
+              {journeyOtEnabled && <div className="form-grid compact-grid attendance-time-grid attendance-ot-fields">
+                <label><span>OT in time</span><input aria-label="Overtime in time" type="time" value={journeyOtInTime} onChange={(event) => setJourneyOtInTime(event.target.value)} /></label>
+                <label><span>OT out time</span><input aria-label="Overtime out time" type="time" value={journeyOtOutTime} onChange={(event) => setJourneyOtOutTime(event.target.value)} /></label>
+              </div>}
+            </>}
             <div className="attendance-confirm-list">
               <div className="attendance-confirm-title"><UserCheck size={18} /><strong>{targetRecords.length} attending</strong><span>Untick anyone to remove</span></div>
               {scopeRecords.map((record) => {
