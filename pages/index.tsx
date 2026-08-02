@@ -19,7 +19,6 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
-  RotateCcw,
   Save,
   SlidersHorizontal,
   Trash2,
@@ -328,7 +327,6 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [tempPasswordSet, setTempPasswordSet] = useState(false);
   const [employeeGroups, setEmployeeGroups] = useState(defaultEmployeeGroups);
   const [sites, setSites] = useState<Site[]>([]);
   const [salaryTransactions, setSalaryTransactions] = useState<SalaryTransaction[]>([]);
@@ -405,7 +403,7 @@ export default function Home() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      await Promise.all([fetchSession(), fetchEmployees(), fetchEmployeeGroups(), fetchSites(), fetchSalaryTransactions(), fetchPasswordStatus()]);
+      await Promise.all([fetchSession(), fetchEmployees(), fetchEmployeeGroups(), fetchSites(), fetchSalaryTransactions()]);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -463,11 +461,6 @@ export default function Home() {
   const fetchSession = async () => {
     const res = await fetch('/api/auth/session');
     if (res.ok) setIsSuperAdmin(Boolean((await res.json()).is_super_admin));
-  };
-
-  const fetchPasswordStatus = async () => {
-    const res = await fetch('/api/site-password');
-    if (res.ok) setTempPasswordSet(Boolean((await res.json()).tempPasswordSet));
   };
 
   const fetchEmployeeGroups = async () => {
@@ -850,19 +843,6 @@ export default function Home() {
     await Promise.all([fetchSites(), fetchEmployees()]);
   };
 
-  const handleSetTempPassword = async () => {
-    const password = prompt('Set the temporary password used by any work site that has not been given its own password:');
-    if (!password) return;
-    const res = await fetch('/api/site-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ scope: 'temp', password }),
-    });
-    if (!res.ok) return alert((await res.json().catch(() => null))?.error || 'Could not set the temporary password.');
-    setTempPasswordSet(true);
-    alert('Temporary password updated.');
-  };
-
   const handleSetSitePassword = async (site: Site) => {
     const password = prompt(`Set a password for "${site.name}":`);
     if (!password) return;
@@ -872,13 +852,6 @@ export default function Home() {
       body: JSON.stringify({ scope: 'site', site_id: site.id, password }),
     });
     if (!res.ok) return alert((await res.json().catch(() => null))?.error || `Could not set the password for "${site.name}".`);
-    await fetchSites();
-  };
-
-  const handleResetSitePassword = async (site: Site) => {
-    if (!confirm(`Remove the custom password for "${site.name}"? It will fall back to the temporary password.`)) return;
-    const res = await fetch(`/api/site-password?site_id=${site.id}`, { method: 'DELETE' });
-    if (!res.ok) return alert(`Could not reset the password for "${site.name}".`);
     await fetchSites();
   };
 
@@ -1317,13 +1290,6 @@ export default function Home() {
               <>
                 <SiteForm onSubmit={handleSaveSite} />
 
-                <div className="team-add-row">
-                  <span className="muted-chip">{tempPasswordSet ? 'Temporary password is set' : 'No temporary password set yet'}</span>
-                  <button className="icon-button dark" title="Set temporary password" aria-label="Set temporary password" type="button" onClick={handleSetTempPassword}>
-                    <KeyRound size={17} />
-                  </button>
-                </div>
-
                 <SectionHeader title="Projects" action={`${filteredSites.length} locations`} />
                 <div className="list-stack">
                   {filteredSites.length === 0 ? (
@@ -1350,11 +1316,7 @@ export default function Home() {
                               <button className="icon-button small" title="Set/change password" aria-label={`Set password for ${site.name}`} type="button" onClick={() => handleSetSitePassword(site)}>
                                 <KeyRound size={15} />
                               </button>
-                              {site.has_password && (
-                                <button className="icon-button small" title="Reset to temporary password" aria-label={`Reset password for ${site.name}`} type="button" onClick={() => handleResetSitePassword(site)}>
-                                  <RotateCcw size={15} />
-                                </button>
-                              )}
+                              <span className="muted-chip">{site.has_password ? 'Password set' : 'Password required'}</span>
                               <button
                                 className="icon-button small"
                                 title="View team"
