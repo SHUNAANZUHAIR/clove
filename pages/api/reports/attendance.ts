@@ -1,7 +1,6 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../../lib/db';
-import { requestUser, siteScope, authErrorResponse } from '../../../lib/request-auth';
-import { logAudit } from '../../../lib/audit';
+import { requestSiteId } from '../../../lib/request-auth';
 
 interface AttendanceReportRow {
   attendance_date: string;
@@ -46,20 +45,9 @@ const columns: PdfColumn[] = [
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  let authUser;
-  try {
-    authUser = await requestUser(req);
-  } catch (error) {
-    const { status, body } = authErrorResponse(error);
-    return res.status(status).json(body);
-  }
-
   try {
     await ensureAttendanceTable();
-    const authenticatedSiteId = siteScope(authUser);
-    if (authenticatedSiteId === null) {
-      return res.status(403).json({ error: 'You do not manage a work site yet. Contact an administrator.' });
-    }
+    const authenticatedSiteId = requestSiteId(req);
     const requestedSiteId = Number(singleValue(req.query.site_id));
     const siteId = authenticatedSiteId === -1 && Number.isInteger(requestedSiteId) && requestedSiteId > 0 ? requestedSiteId : authenticatedSiteId;
     const startDate = normalizeDate(req.query.date);
@@ -97,7 +85,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const rows = result.rows as AttendanceReportRow[];
     const siteLabel = siteId === -1 ? 'All sites' : rows[0]?.site_name || 'Selected site';
     const pdf = createAttendancePdf(rows, startDate, endDate, siteLabel);
-    await logAudit(req, { user: authUser, action: 'report.download', targetType: 'attendance_report', metadata: { startDate, endDate, siteId } });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="CloveHR-attendance-${startDate}-to-${endDate}.pdf"`);
     res.setHeader('Content-Length', pdf.length);

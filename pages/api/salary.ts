@@ -1,26 +1,17 @@
 // pages/api/salary.ts
-import type { NextApiRequest, NextApiResponse } from 'next';
+import { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../lib/db';
-import { requestUser, isAdmin, authErrorResponse } from '../../lib/request-auth';
-import { logAudit } from '../../lib/audit';
+import { requestSiteId, isSuperAdmin } from '../../lib/request-auth';
+
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  let authUser;
-  try {
-    authUser = await requestUser(req);
-  } catch (error) {
-    const { status, body } = authErrorResponse(error);
-    return res.status(status).json(body);
-  }
-
   try {
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_terminated BOOLEAN NOT NULL DEFAULT FALSE');
-    if (!isAdmin(authUser)) return res.status(403).json({ error: 'Only admins can access payroll.' });
-    const authenticatedSiteId = -1;
-
+    const authenticatedSiteId = requestSiteId(req);
+    if (!isSuperAdmin(authenticatedSiteId)) return res.status(403).json({ error: 'Only super admin can access payroll.' });
     if (req.method === 'GET') {
       const { employee_id, month, year, status } = req.query;
-
+      
       let sql = `
         SELECT
           s.id,
@@ -44,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         WHERE ($1 = -1 OR e.site_id = $1)
       `;
       const params: any[] = [authenticatedSiteId];
-
+      
       if (employee_id) {
         params.push(employee_id);
         sql += ` AND s.employee_id = $${params.length}`;
@@ -61,34 +52,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         params.push(status);
         sql += ` AND s.status = $${params.length}`;
       }
-
+      
       sql += ' ORDER BY s.year DESC, s.month DESC, e.name';
-
+      
       const result = await query(sql, params);
       return res.status(200).json(result.rows);
     }
 
+
     if (req.method === 'POST') {
-      const {
-        employee_id,
-        employee_ids,
-        site_id,
-        job_level,
-        month,
+	      const {
+	        employee_id,
+	        employee_ids,
+	        site_id,
+	        job_level,
+	        month,
         year,
         worked_days,
         absent_days,
         cash_advance,
-        status,
-      } = req.body;
+	        status,
+	      } = req.body;
 
-      const selectedEmployeeIds = normalizeEmployeeIds(employee_ids, employee_id);
-      const requestedSiteId = Number(site_id);
-      const targetSiteId = authenticatedSiteId === -1 && Number.isInteger(requestedSiteId) && requestedSiteId > 0 ? requestedSiteId : authenticatedSiteId;
-      const targets = await getSalaryTargets(targetSiteId, selectedEmployeeIds, job_level);
-      if (targets.length === 0) {
-        return res.status(400).json({ error: 'No employees found for salary entry' });
-      }
+
+	      const selectedEmployeeIds = normalizeEmployeeIds(employee_ids, employee_id);
+	      const requestedSiteId = Number(site_id);
+	      const targetSiteId = authenticatedSiteId === -1 && Number.isInteger(requestedSiteId) && requestedSiteId > 0 ? requestedSiteId : authenticatedSiteId;
+	      const targets = await getSalaryTargets(targetSiteId, selectedEmployeeIds, job_level);
+	      if (targets.length === 0) {
+	        return res.status(400).json({ error: 'No employees found for salary entry' });
+	      }
+
 
       const salaryMonth = Number(month);
       const businessYear = Number(year) || new Date().getFullYear();
@@ -96,40 +90,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'Select a valid salary month.' });
       }
 
-      if (targets.some((target) => !isSalaryMonthAfterJoinDate(target.join_date, salaryMonth, businessYear))) {
-        return res.status(400).json({ error: 'Salary month cannot be before an employee join date.' });
-      }
 
-      const targetIds = targets.map((target) => target.id);
-      const existingPaid = await query(
-        `SELECT id
-         FROM salary_transactions
-         WHERE employee_id = ANY($1::int[]) AND month=$2 AND year=$3 AND status='paid'
-         LIMIT 1`,
-        [targetIds, salaryMonth, businessYear]
-      );
+	      if (targets.some((target) => !isSalaryMonthAfterJoinDate(target.join_date, salaryMonth, businessYear))) {
+	        return res.status(400).json({ error: 'Salary month cannot be before an employee join date.' });
+	      }
 
-      if (existingPaid.rowCount > 0) {
-        return res.status(409).json({ error: 'This salary month is already paid for one or more selected employees.' });
-      }
 
-      const savedRows = [];
-      for (const target of targets) {
-        const calculated = calculateSalary(
-          target.salary,
-          target.join_date,
-          salaryMonth,
-          businessYear,
-          absent_days,
-          cash_advance
-        );
+	      const targetIds = targets.map((target) => target.id);
+	      const existingPaid = await query(
+	        `SELECT id
+	         FROM salary_transactions
+	         WHERE employee_id = ANY($1::int[]) AND month=$2 AND year=$3 AND status='paid'
+	         LIMIT 1`,
+	        [targetIds, salaryMonth, businessYear]
+	      );
+
+
+	      if (existingPaid.rowCount > 0) {
+	        return res.status(409).json({ error: 'This salary month is already paid for one or more selected employees.' });
+	      }
+
+
+	      const savedRows = [];
+	      for (const target of targets) {
+	        const calculated = calculateSalary(
+            target.salary,
+            target.join_date,
+            salaryMonth,
+            businessYear,
+            absent_days,
+            cash_advance
+          );
         const result = await query(
-          `INSERT INTO salary_transactions
-           (employee_id, month, year, worked_days, daily_rate, absent_days,
+          `INSERT INTO salary_transactions 
+           (employee_id, month, year, worked_days, daily_rate, absent_days, 
             absent_deduction, cash_advance, net_salary, status)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-           ON CONFLICT (employee_id, month, year)
-           DO UPDATE SET
+           ON CONFLICT (employee_id, month, year) 
+           DO UPDATE SET 
              worked_days = EXCLUDED.worked_days,
              daily_rate = EXCLUDED.daily_rate,
              absent_days = EXCLUDED.absent_days,
@@ -174,15 +172,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         savedRows.push(result.rows[0]);
       }
 
-      await logAudit(req, {
-        user: authUser,
-        action: 'salary.create',
-        targetType: 'salary_transaction',
-        metadata: { month: salaryMonth, year: businessYear, employee_ids: targetIds, status: status || 'paid' },
-      });
 
-      return res.status(201).json(site_id || job_level || selectedEmployeeIds.length > 1 ? savedRows : savedRows[0]);
+	      return res.status(201).json(site_id || job_level || selectedEmployeeIds.length > 1 ? savedRows : savedRows[0]);
     }
+
 
     if (req.method === 'PUT') {
       const { id, status } = req.body;
@@ -205,19 +198,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
            updated_at`,
         [status, id, authenticatedSiteId]
       );
-      if (!result.rowCount) return res.status(404).json({ error: 'Salary transaction not found' });
-      await logAudit(req, { user: authUser, action: 'salary.update_status', targetType: 'salary_transaction', targetId: id, metadata: { status } });
       return res.status(200).json(result.rows[0]);
     }
+
 
     if (req.method === 'DELETE') {
       const { id } = req.query;
       const salaryId = Array.isArray(id) ? id[0] : id;
       const parsedId = Number(salaryId);
 
+
       if (!Number.isInteger(parsedId) || parsedId <= 0) {
         return res.status(400).json({ error: 'Salary transaction id is required' });
       }
+
 
       const result = await query(`DELETE FROM salary_transactions WHERE id=$1
         AND employee_id IN (SELECT id FROM employees WHERE $2 = -1 OR site_id = $2) RETURNING id`, [parsedId, authenticatedSiteId]);
@@ -225,9 +219,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'Salary transaction not found' });
       }
 
-      await logAudit(req, { user: authUser, action: 'salary.delete', targetType: 'salary_transaction', targetId: result.rows[0].id });
+
       return res.status(200).json({ success: true, deleted: result.rows[0].id });
     }
+
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (error) {
@@ -235,6 +230,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
+
 
 async function getSalaryTargets(siteId: number, employeeIds: number[] = [], jobLevel?: string) {
   if (employeeIds.length === 0 && !jobLevel) {
@@ -249,6 +245,7 @@ async function getSalaryTargets(siteId: number, employeeIds: number[] = [], jobL
     return result.rows as Array<{ id: number; salary: number; join_date: string | null }>;
   }
 
+
   if (employeeIds.length > 0) {
     const result = await query(
       `SELECT id, salary::float AS salary, to_char(join_date, 'YYYY-MM-DD') AS join_date
@@ -259,6 +256,7 @@ async function getSalaryTargets(siteId: number, employeeIds: number[] = [], jobL
     );
     return result.rows as Array<{ id: number; salary: number; join_date: string | null }>;
   }
+
 
   if (jobLevel) {
     const result = await query(
@@ -271,8 +269,10 @@ async function getSalaryTargets(siteId: number, employeeIds: number[] = [], jobL
     return result.rows as Array<{ id: number; salary: number; join_date: string | null }>;
   }
 
+
   return [];
 }
+
 
 function normalizeEmployeeIds(employeeIds: unknown, employeeId?: number | string) {
   const values = Array.isArray(employeeIds)
@@ -283,6 +283,7 @@ function normalizeEmployeeIds(employeeIds: unknown, employeeId?: number | string
         ? [employeeId]
         : [];
 
+
   return Array.from(new Set(
     values
       .map((value) => Number(value))
@@ -290,18 +291,23 @@ function normalizeEmployeeIds(employeeIds: unknown, employeeId?: number | string
   ));
 }
 
+
 function isSalaryMonthAfterJoinDate(joinDate: string | null, salaryMonth: number, businessYear: number) {
   if (!joinDate) return true;
+
 
   const [datePart] = joinDate.split('T');
   const [joinYear, joinMonth] = datePart.split('-').map(Number);
   if (!Number.isInteger(joinYear) || !Number.isInteger(joinMonth)) return true;
 
+
   if (businessYear < joinYear) return false;
   if (businessYear === joinYear && salaryMonth < joinMonth) return false;
 
+
   return true;
 }
+
 
 export function calculateSalary(baseSalary: number, joinDate: string | null, salaryMonth: number, businessYear: number, absentDaysInput: number, cashAdvanceInput: number) {
   const eligibleDays = getEligiblePayrollDays(joinDate, salaryMonth, businessYear);
@@ -312,6 +318,7 @@ export function calculateSalary(baseSalary: number, joinDate: string | null, sal
   const daily_rate = roundMoney(rawDailyRate);
   const absent_deduction = roundMoney(rawDailyRate * absent_days);
   const net_salary = roundMoney(Math.max(0, rawDailyRate * worked_days - cash_advance));
+
 
   return {
     worked_days,
@@ -329,6 +336,7 @@ function getEligiblePayrollDays(joinDate: string | null, salaryMonth: number, bu
   if (joinYear !== businessYear || joinMonth !== salaryMonth || !Number.isInteger(joinDay)) return 30;
   return Math.max(0, 30 - Math.min(Math.max(joinDay, 1), 30) + 1);
 }
+
 
 function roundMoney(value: number) {
   return Number(value.toFixed(2));

@@ -1,7 +1,6 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../../lib/db';
-import { requestUser, isAdmin, authErrorResponse } from '../../../lib/request-auth';
-import { logAudit } from '../../../lib/audit';
+import { requestSiteId, isSuperAdmin } from '../../../lib/request-auth';
 
 
 interface EmployeeReportRow {
@@ -49,18 +48,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  let authUser;
-  try {
-    authUser = await requestUser(req);
-  } catch (error) {
-    const { status, body } = authErrorResponse(error);
-    return res.status(status).json(body);
-  }
-
 
   try {
-    if (!isAdmin(authUser)) return res.status(403).json({ error: 'Only admins can access the team workspace.' });
-    const siteId = -1;
+    const siteId = requestSiteId(req);
+    if (!isSuperAdmin(siteId)) return res.status(403).json({ error: 'Only super admin can access the team workspace.' });
     const employeeIds = normalizeEmployeeIds(req.query.employee_ids);
     if (employeeIds.length > 250) return res.status(400).json({ error: 'A maximum of 250 employees can be downloaded together' });
     const whereClause = employeeIds.length > 0 ? 'WHERE ($1 = -1 OR e.site_id = $1) AND e.id = ANY($2::int[])' : 'WHERE ($1 = -1 OR e.site_id = $1)';
@@ -83,7 +74,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const employees = result.rows as EmployeeReportRow[];
     const pdf = createEmployeeReportPdf(employees);
     const today = new Date().toISOString().slice(0, 10);
-    await logAudit(req, { user: authUser, action: 'report.download', targetType: 'employee_report', metadata: { count: employees.length } });
 
 
     res.setHeader('Content-Type', 'application/pdf');
