@@ -2,7 +2,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../lib/db';
 import { requestSiteId, isSuperAdmin } from '../../lib/request-auth';
-import { ensureSitePasswordSchema, hashSitePassword, getTempSitePasswordHash } from '../../lib/auth';
+import { ensureSitePasswordSchema, hashSitePassword } from '../../lib/auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -10,25 +10,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!isSuperAdmin(authenticatedSiteId)) return res.status(403).json({ error: 'Only super admin can manage passwords.' });
     await ensureSitePasswordSchema();
 
-    if (req.method === 'GET') {
-      const tempHash = await getTempSitePasswordHash();
-      return res.status(200).json({ tempPasswordSet: !!tempHash });
-    }
-
     if (req.method === 'POST') {
       const { scope, site_id, password } = req.body;
       const supplied = String(password || '');
       if (supplied.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters.' });
       const hash = await hashSitePassword(supplied);
-
-      if (scope === 'temp') {
-        await query(
-          `INSERT INTO app_settings (key, value) VALUES ('temp_site_password_hash', $1)
-           ON CONFLICT (key) DO UPDATE SET value = $1`,
-          [hash]
-        );
-        return res.status(200).json({ success: true });
-      }
 
       if (scope === 'site') {
         const id = Number(site_id);
@@ -39,13 +25,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       return res.status(400).json({ error: 'Invalid scope.' });
-    }
-
-    if (req.method === 'DELETE') {
-      const id = Number(req.query.site_id);
-      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid site.' });
-      await query('UPDATE sites SET password_hash = NULL WHERE id = $1', [id]);
-      return res.status(200).json({ success: true });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

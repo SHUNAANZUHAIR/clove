@@ -26,12 +26,10 @@ export function verifyPassword(password: unknown) {
   return first.length === second.length && timingSafeEqual(first, second);
 }
 
-// Per-site login passwords live in the database so the super admin can set/change
-// them per work site instead of everyone sharing CLOVEHR_PASSWORD. Any site without
-// its own password falls back to a temp password the super admin configures once.
+// Per-site login passwords live in the database so the super admin can set or
+// change them independently. A site without its own password cannot sign in.
 export async function ensureSitePasswordSchema() {
   await query('ALTER TABLE sites ADD COLUMN IF NOT EXISTS password_hash TEXT');
-  await query('CREATE TABLE IF NOT EXISTS app_settings (key VARCHAR(100) PRIMARY KEY, value TEXT)');
 }
 
 export async function hashSitePassword(password: string) {
@@ -41,11 +39,6 @@ export async function hashSitePassword(password: string) {
 export async function verifySitePassword(password: unknown, hash: string | null | undefined) {
   if (!hash) return false;
   return bcrypt.compare(String(password || ''), hash);
-}
-
-export async function getTempSitePasswordHash(): Promise<string | null> {
-  const result = await query(`SELECT value FROM app_settings WHERE key = 'temp_site_password_hash'`);
-  return result.rows[0]?.value || null;
 }
 
 export function readSessionSiteId(cookieHeader?: string) {

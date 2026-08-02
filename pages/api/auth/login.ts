@@ -7,7 +7,6 @@ import {
   verifyPassword,
   ensureSitePasswordSchema,
   verifySitePassword,
-  getTempSitePasswordHash,
 } from '../../../lib/auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -28,8 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const site = await query('SELECT id, password_hash FROM sites WHERE id = $1', [siteId]);
     if (!site.rowCount) return res.status(401).json({ error: 'Invalid work site.' });
     const siteHash: string | null = site.rows[0].password_hash;
-    const hash = siteHash || (await getTempSitePasswordHash());
-    if (!(await verifySitePassword(req.body?.password, hash))) {
+    if (!(await verifySitePassword(req.body?.password, siteHash))) {
       return res.status(401).json({ error: 'Invalid site login details.' });
     }
   }
