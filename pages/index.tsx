@@ -1736,7 +1736,7 @@ function EmployeeForm({
               </select>
             </label>
             {allowSiteSelection ? (
-              <label>
+              <label className="attendance-scope-field">
                 <span>Work site</span>
                 <select value={form.site_id} onChange={(event) => onChange({ ...form, site_id: event.target.value })}>
                   <option value="">Select work site</option>
@@ -2110,7 +2110,7 @@ function AttendancePanel({
                   <option value="employee">Individual employee</option>
                 </select>
               </label>
-              {attendanceScope === 'employee' && <label>
+              {attendanceScope === 'employee' && <label className="attendance-employee-field">
                 <span>Select employee</span>
                 <select value={journeyEmployeeId} onChange={(event) => {
                   setJourneyEmployeeId(event.target.value);
