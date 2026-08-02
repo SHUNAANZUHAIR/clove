@@ -724,6 +724,11 @@ button:disabled {
 }
 
 .attendance-journey { min-width: 0; display: grid; gap: 14px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+.attendance-start-actions { display: grid; gap: 12px; }
+.leave-start-button { border-color: #e2b66d; background: linear-gradient(135deg, #fff7e8, #f8e2b8); color: #7a4b0d; }
+.leave-form-grid { align-items: end; }
+.leave-notes-field { grid-column: 1 / -1; }
+.leave-notes-field textarea { width: 100%; resize: vertical; }
 .attendance-date-strip { display: grid; grid-template-columns: repeat(5, minmax(54px, 1fr)); gap: 7px; overflow-x: auto; padding: 4px 1px 8px; }
 .attendance-date-strip button { min-height: 72px; display: grid; place-items: center; gap: 1px; border: 1px solid var(--line); border-radius: 11px; color: var(--ink); background: var(--panel-soft); padding: 7px 4px; }
 .attendance-date-strip button small,
