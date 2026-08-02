@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../lib/db';
-import { requestUser, isAdmin, authErrorResponse } from '../../lib/request-auth';
-import { logAudit } from '../../lib/audit';
+import { requestSiteId, isSuperAdmin } from '../../lib/request-auth';
 
 const maxPhotoPayloadLength = 2_500_000;
 const allowedPhotoDataUrl = /^data:image\/(?:jpeg|jpg|png|webp);base64,/;
@@ -57,19 +56,10 @@ const normalize = (body: Record<string, unknown>): Record<string, unknown> => ({
 export const config = { api: { bodyParser: { sizeLimit: '6mb' } } };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  let authUser;
-  try {
-    authUser = await requestUser(req);
-  } catch (error) {
-    const { status, body } = authErrorResponse(error);
-    return res.status(status).json(body);
-  }
-
   try {
     await ensureAgreementColumns();
-    if (!isAdmin(authUser)) return res.status(403).json({ error: 'Only admins can access the team workspace.' });
-    // Admins are unrestricted; kept as -1 to match the existing "$1 = -1 OR site_id = $1" queries below.
-    const authenticatedSiteId = -1;
+    const authenticatedSiteId = requestSiteId(req);
+    if (!isSuperAdmin(authenticatedSiteId)) return res.status(403).json({ error: 'Only super admin can access the team workspace.' });
 
     if (req.method === 'GET') {
       const result = await query(`SELECT e.*, e.salary::float AS salary,
@@ -90,9 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         SET is_terminated = $1, terminated_at = CASE WHEN $1 THEN CURRENT_DATE ELSE NULL END
         WHERE id = $2 AND ($3 = -1 OR site_id = $3)
         RETURNING id, is_terminated, to_char(terminated_at, 'YYYY-MM-DD') AS terminated_at`, [terminated, id, authenticatedSiteId]);
-      if (!result.rowCount) return res.status(404).json({ error: 'Employee not found.' });
-      await logAudit(req, { user: authUser, action: terminated ? 'employee.terminate' : 'employee.reinstate', targetType: 'employee', targetId: id });
-      return res.status(200).json(result.rows[0]);
+      return result.rowCount ? res.status(200).json(result.rows[0]) : res.status(404).json({ error: 'Employee not found.' });
     }
 
     if (req.method === 'POST' || req.method === 'PUT') {
@@ -109,7 +97,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (req.method === 'POST') {
         const placeholders = writableColumns.map((_, index) => `$${index + 1}`).join(', ');
         const result = await query(`INSERT INTO employees (${writableColumns.join(', ')}) VALUES (${placeholders}) RETURNING id`, params);
-        await logAudit(req, { user: authUser, action: 'employee.create', targetType: 'employee', targetId: result.rows[0].id, metadata: { name: values.name } });
         return res.status(201).json(result.rows[0]);
       }
 
@@ -117,18 +104,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (!id) return res.status(400).json({ error: 'Employee id is required.' });
       const assignments = writableColumns.map((column, index) => `${column} = $${index + 1}`).join(', ');
       const result = await query(`UPDATE employees SET ${assignments} WHERE id = $${params.length + 1} AND ($${params.length + 2} = -1 OR site_id = $${params.length + 2}) RETURNING id`, [...params, id, authenticatedSiteId]);
-      if (!result.rowCount) return res.status(404).json({ error: 'Employee not found.' });
-      await logAudit(req, { user: authUser, action: 'employee.update', targetType: 'employee', targetId: id, metadata: { name: values.name } });
-      return res.status(200).json(result.rows[0]);
+      return result.rowCount ? res.status(200).json(result.rows[0]) : res.status(404).json({ error: 'Employee not found.' });
     }
 
     if (req.method === 'DELETE') {
       const id = Number(req.query.id);
       if (!id) return res.status(400).json({ error: 'Employee id is required.' });
       const result = await query('DELETE FROM employees WHERE id = $1 AND ($2 = -1 OR site_id = $2) RETURNING id', [id, authenticatedSiteId]);
-      if (!result.rowCount) return res.status(404).json({ error: 'Employee not found.' });
-      await logAudit(req, { user: authUser, action: 'employee.delete', targetType: 'employee', targetId: id });
-      return res.status(204).end();
+      return result.rowCount ? res.status(204).end() : res.status(404).json({ error: 'Employee not found.' });
     }
 
     res.setHeader('Allow', 'GET, POST, PUT, PATCH, DELETE');

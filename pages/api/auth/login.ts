@@ -1,73 +1,40 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { query } from '../../../lib/db';
 import {
   authCookieName,
   authMaxAge,
-  ensureAuthSchema,
-  findUserByEmail,
-  verifyUserPassword,
-  registerFailedLogin,
-  registerSuccessfulLogin,
-  isLocked,
   createSession,
+  verifyPassword,
+  ensureSitePasswordSchema,
+  verifySitePassword,
+  getTempSitePasswordHash,
 } from '../../../lib/auth';
-import { logAudit } from '../../../lib/audit';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  await ensureAuthSchema();
-
-  const email = String(req.body?.email || '').trim().toLowerCase();
-  const password = req.body?.password;
-  const userAgentHeader = req.headers['user-agent'];
-  const userAgent = Array.isArray(userAgentHeader) ? userAgentHeader[0] : userAgentHeader || null;
-  const ip = requestIp(req);
-
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required.' });
+  const requestedSite = String(req.body?.site_id || '');
+  const siteId = requestedSite === 'super_admin' ? -1 : Number(requestedSite);
+  if (!Number.isInteger(siteId) || (siteId <= 0 && siteId !== -1)) {
+    return res.status(401).json({ error: 'Invalid site login details.' });
   }
 
-  const user = await findUserByEmail(email);
-  if (!user) {
-    await logAudit(req, { actorEmail: email, action: 'auth.login_failed', metadata: { reason: 'unknown_email' } });
-    return res.status(401).json({ error: 'Invalid email or password.' });
-  }
-
-  if (isLocked(user.locked_until)) {
-    await logAudit(req, { actorEmail: email, actorRole: user.role, action: 'auth.login_blocked', metadata: { reason: 'locked' } });
-    return res.status(423).json({ error: 'This account is temporarily locked after too many failed attempts. Try again in a few minutes.' });
-  }
-
-  if (!user.is_active) {
-    await logAudit(req, { actorEmail: email, actorRole: user.role, action: 'auth.login_failed', metadata: { reason: 'inactive' } });
-    return res.status(401).json({ error: 'Invalid email or password.' });
-  }
-
-  const validPassword = await verifyUserPassword(password, user.password_hash);
-  if (!validPassword) {
-    const locked = await registerFailedLogin(user.id, user.failed_attempts);
-    await logAudit(req, {
-      actorEmail: email,
-      actorRole: user.role,
-      action: locked ? 'auth.login_locked' : 'auth.login_failed',
-      metadata: { reason: 'bad_password' },
-    });
-    if (locked) {
-      return res.status(423).json({ error: 'Too many failed attempts. This account is now locked for 15 minutes.' });
+  if (siteId === -1) {
+    // Super admin keeps using the shared CLOVEHR_PASSWORD env var.
+    if (!verifyPassword(req.body?.password)) {
+      return res.status(401).json({ error: 'Invalid site login details.' });
     }
-    return res.status(401).json({ error: 'Invalid email or password.' });
+  } else {
+    await ensureSitePasswordSchema();
+    const site = await query('SELECT id, password_hash FROM sites WHERE id = $1', [siteId]);
+    if (!site.rowCount) return res.status(401).json({ error: 'Invalid work site.' });
+    const siteHash: string | null = site.rows[0].password_hash;
+    const hash = siteHash || (await getTempSitePasswordHash());
+    if (!(await verifySitePassword(req.body?.password, hash))) {
+      return res.status(401).json({ error: 'Invalid site login details.' });
+    }
   }
-
-  await registerSuccessfulLogin(user.id);
-  const cookieValue = await createSession(user.id, { ip, userAgent });
-  await logAudit(req, { actorEmail: user.email, actorRole: user.role, action: 'auth.login_success' });
 
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-  res.setHeader('Set-Cookie', `${authCookieName}=${cookieValue}; Path=/; Max-Age=${authMaxAge}; HttpOnly; SameSite=Lax${secure}`);
+  res.setHeader('Set-Cookie', `${authCookieName}=${createSession(siteId)}; Path=/; Max-Age=${authMaxAge}; HttpOnly; SameSite=Lax${secure}`);
   return res.status(200).json({ success: true });
-}
-
-function requestIp(req: NextApiRequest) {
-  const forwarded = req.headers['x-forwarded-for'];
-  const value = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-  return value?.split(',')[0]?.trim() || req.socket?.remoteAddress || null;
 }
