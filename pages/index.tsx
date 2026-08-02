@@ -505,10 +505,11 @@ export default function Home() {
     await fetchAttendanceHistory();
   };
 
-  const saveAttendance = async (recordsToSave: AttendanceRecord[], endDate?: string, siteId?: string) => {
+  const saveAttendance = async (recordsToSave: AttendanceRecord[], endDate?: string, siteId?: string, startDate?: string) => {
     setAttendanceSaving(true);
     try {
-      const dates = getAttendanceDateRange(attendanceDate, endDate || attendanceDate);
+      const rangeStart = startDate || attendanceDate;
+      const dates = getAttendanceDateRange(rangeStart, endDate || rangeStart);
       if (dates.length === 0) {
         alert('Select a valid date range. The end date must be on or after the start date.');
         return;
@@ -1889,10 +1890,18 @@ function AttendancePanel({
   onDateChange: (date: string) => void;
   onEndDateChange: (date: string) => void;
   onChange: (records: AttendanceRecord[]) => void;
-  onSave: (records: AttendanceRecord[], endDate?: string, siteId?: string) => void;
+  onSave: (records: AttendanceRecord[], endDate?: string, siteId?: string, startDate?: string) => void;
   onDeleteHistory: (entry: AttendanceHistoryEntry) => void;
 }) {
   const [journeyOpen, setJourneyOpen] = useState(false);
+  const [leaveJourneyOpen, setLeaveJourneyOpen] = useState(false);
+  const [leaveStep, setLeaveStep] = useState(1);
+  const [leaveEmployeeId, setLeaveEmployeeId] = useState('');
+  const [leaveStartDate, setLeaveStartDate] = useState(date);
+  const [leaveEndDate, setLeaveEndDate] = useState(date);
+  const [leaveType, setLeaveType] = useState('sick');
+  const [leaveNotes, setLeaveNotes] = useState('');
+  const [leaveConfirmation, setLeaveConfirmation] = useState('');
   const [journeyStep, setJourneyStep] = useState(1);
   const [attendanceScope, setAttendanceScope] = useState<'employee' | 'site'>('site');
   const [journeyEmployeeId, setJourneyEmployeeId] = useState('');
@@ -1959,9 +1968,32 @@ function AttendancePanel({
     setJourneyStep(4);
   };
 
+  const submitLeave = async () => {
+    const employee = records.find((record) => record.employee_id.toString() === leaveEmployeeId);
+    if (!employee) return;
+    const leaveLabels: Record<string, string> = {
+      sick: 'Sick leave',
+      annual: 'Annual leave',
+      emergency: 'Emergency leave',
+      unpaid: 'Unpaid leave',
+    };
+    await Promise.resolve(onSave([{
+      ...employee,
+      status: 'leave',
+      in_time: null,
+      out_time: null,
+      ot_in_time: null,
+      ot_out_time: null,
+      notes: [leaveLabels[leaveType], leaveNotes.trim()].filter(Boolean).join(': '),
+    }], leaveEndDate, employee.site_id?.toString() || 'all', leaveStartDate));
+    setLeaveConfirmation(`${employee.employee_name} — ${leaveLabels[leaveType]} submitted.`);
+    setLeaveStep(3);
+  };
+
   return (
     <section className="attendance-panel" aria-label="Employee attendance tracking">
-      {!journeyOpen ? (
+      {!journeyOpen && !leaveJourneyOpen ? (
+        <div className="attendance-start-actions">
         <button className="give-salary-button attendance-start-button" type="button" disabled={sites.length === 0 || records.length === 0} onClick={() => {
           const isSingleSiteLogin = sites.length === 1;
           const loggedSiteId = isSingleSiteLogin ? sites[0].id.toString() : '';
@@ -1979,7 +2011,21 @@ function AttendancePanel({
           <ClipboardCheck size={20} />
           SUBMIT ATTENDANCE
         </button>
-      ) : (
+        <button className="give-salary-button leave-start-button" type="button" disabled={records.length === 0} onClick={() => {
+          setLeaveJourneyOpen(true);
+          setLeaveStep(1);
+          setLeaveEmployeeId('');
+          setLeaveStartDate(date);
+          setLeaveEndDate(date);
+          setLeaveType('sick');
+          setLeaveNotes('');
+          setLeaveConfirmation('');
+        }}>
+          <CalendarDays size={20} />
+          SUBMIT LEAVE
+        </button>
+        </div>
+      ) : journeyOpen ? (
         <section className="attendance-journey">
           <div className="wizard-head">
             <div><h2>Submit attendance</h2><span>{targetLabel || 'Choose employees'}</span></div>
@@ -2066,7 +2112,38 @@ function AttendancePanel({
           </div>}
           {journeyStep === 4 && <div className="wizard-panel attendance-success"><UserCheck size={30} /><h3>Attendance recorded</h3><p>{attendanceConfirmation}</p><button className="dark-button" type="button" onClick={() => { setJourneyOpen(false); setJourneyStep(1); }}>Done</button></div>}
         </section>
-      )}
+      ) : null}
+
+      {leaveJourneyOpen && <section className="attendance-journey leave-journey">
+        <div className="wizard-head">
+          <div><h2>Submit leave</h2><span>{records.find((record) => record.employee_id.toString() === leaveEmployeeId)?.employee_name || 'Choose an employee'}</span></div>
+          <button className="soft-button compact" type="button" onClick={() => setLeaveJourneyOpen(false)}><X size={14} /> Close</button>
+        </div>
+        <div className="wizard-steps" aria-label="Leave submission steps">
+          {['Employee', 'Leave details', 'Done'].map((label, index) => (
+            <button key={label} className={`wizard-step ${leaveStep === index + 1 ? 'is-current' : leaveStep > index + 1 ? 'is-complete' : 'is-upcoming'}`} type="button" disabled={index + 1 > leaveStep || index === 2} onClick={() => setLeaveStep(index + 1)}>
+              <span className="wizard-step-node">{leaveStep > index + 1 ? <Check size={17} /> : index + 1}</span>
+              <span className="wizard-step-label">{label}</span>
+            </button>
+          ))}
+        </div>
+        {leaveStep === 1 && <div className="wizard-panel">
+          <div className="form-grid compact-grid">
+            <label><span>Employee</span><select value={leaveEmployeeId} onChange={(event) => setLeaveEmployeeId(event.target.value)}><option value="">Select employee</option>{visibleRecords.map((record) => <option key={record.employee_id} value={record.employee_id}>{record.employee_name}{record.site_name ? ` — ${record.site_name}` : ''}</option>)}</select></label>
+          </div>
+          <div className="action-row"><button className="dark-button" type="button" disabled={!leaveEmployeeId} onClick={() => setLeaveStep(2)}>Next <ChevronRight size={16} /></button></div>
+        </div>}
+        {leaveStep === 2 && <div className="wizard-panel">
+          <div className="form-grid compact-grid leave-form-grid">
+            <label><span>Leave type</span><select value={leaveType} onChange={(event) => setLeaveType(event.target.value)}><option value="sick">Sick leave</option><option value="annual">Annual leave</option><option value="emergency">Emergency leave</option><option value="unpaid">Unpaid leave</option></select></label>
+            <label><span>Start date</span><input type="date" value={leaveStartDate} onChange={(event) => { setLeaveStartDate(event.target.value); if (leaveEndDate < event.target.value) setLeaveEndDate(event.target.value); }} /></label>
+            <label><span>End date</span><input type="date" min={leaveStartDate} value={leaveEndDate} onChange={(event) => setLeaveEndDate(event.target.value)} /></label>
+            <label className="leave-notes-field"><span>Note (optional)</span><textarea rows={3} value={leaveNotes} onChange={(event) => setLeaveNotes(event.target.value)} placeholder="Reason or supporting details" /></label>
+          </div>
+          <div className="action-row"><button className="soft-button" type="button" onClick={() => setLeaveStep(1)}><ChevronLeft size={16} /> Back</button><button className="dark-button" type="button" disabled={saving || !leaveStartDate || !leaveEndDate || leaveEndDate < leaveStartDate} onClick={submitLeave}><Save size={16} /> {saving ? 'Submitting...' : 'Submit leave'}</button></div>
+        </div>}
+        {leaveStep === 3 && <div className="wizard-panel attendance-success"><Check size={30} /><h3>Leave submitted</h3><p>{leaveConfirmation}</p><button className="dark-button" type="button" onClick={() => { setLeaveJourneyOpen(false); setLeaveStep(1); }}>Done</button></div>}
+      </section>}
 
       {false && <>
       <div className="attendance-toolbar">
