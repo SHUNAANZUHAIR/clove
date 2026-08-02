@@ -1944,6 +1944,7 @@ function AttendancePanel({
   const [leaveEmployeeId, setLeaveEmployeeId] = useState('');
   const [leaveStartDate, setLeaveStartDate] = useState(date);
   const [leaveEndDate, setLeaveEndDate] = useState(date);
+  const [leaveDateCount, setLeaveDateCount] = useState(10);
   const [leaveType, setLeaveType] = useState('sick');
   const [leaveNotes, setLeaveNotes] = useState('');
   const [leaveConfirmation, setLeaveConfirmation] = useState('');
@@ -1985,6 +1986,11 @@ function AttendancePanel({
   const journeyDates = Array.from({ length: visibleDateCount }, (_, index) => {
     const item = new Date(today);
     item.setDate(today.getDate() - (visibleDateCount - 1 - index));
+    return item;
+  });
+  const leaveDates = Array.from({ length: leaveDateCount }, (_, index) => {
+    const item = new Date(today);
+    item.setDate(today.getDate() + index);
     return item;
   });
   const scopeRecords = attendanceScope === 'site'
@@ -2060,8 +2066,9 @@ function AttendancePanel({
           setLeaveJourneyOpen(true);
           setLeaveStep(1);
           setLeaveEmployeeId('');
-          setLeaveStartDate(date);
-          setLeaveEndDate(date);
+          setLeaveStartDate(localDateValue(today));
+          setLeaveEndDate(localDateValue(today));
+          setLeaveDateCount(10);
           setLeaveType('sick');
           setLeaveNotes('');
           setLeaveConfirmation('');
@@ -2181,9 +2188,26 @@ function AttendancePanel({
         {leaveStep === 2 && <div className="wizard-panel">
           <div className="form-grid compact-grid leave-form-grid">
             <label><span>Leave type</span><select value={leaveType} onChange={(event) => setLeaveType(event.target.value)}><option value="sick">Sick leave</option><option value="annual">Annual leave</option><option value="emergency">Emergency leave</option><option value="unpaid">Unpaid leave</option></select></label>
-            <label><span>Start date</span><input type="date" value={leaveStartDate} onChange={(event) => { setLeaveStartDate(event.target.value); if (leaveEndDate < event.target.value) setLeaveEndDate(event.target.value); }} /></label>
-            <label><span>End date</span><input type="date" min={leaveStartDate} value={leaveEndDate} onChange={(event) => setLeaveEndDate(event.target.value)} /></label>
             <label className="leave-notes-field"><span>Note (optional)</span><textarea rows={3} value={leaveNotes} onChange={(event) => setLeaveNotes(event.target.value)} placeholder="Reason or supporting details" /></label>
+          </div>
+          <div className="leave-date-selection">
+            <div className="leave-date-heading"><strong>Start date</strong><span>{leaveStartDate}</span></div>
+            <div className="attendance-date-strip" aria-label="Select leave start date">
+              {leaveDates.map((item) => {
+                const value = localDateValue(item);
+                const isToday = value === localDateValue(today);
+                return <button key={`start-${value}`} className={`${isToday ? 'is-today' : 'is-upcoming'}${leaveStartDate === value ? ' is-selected' : ''}`} type="button" onClick={() => { setLeaveStartDate(value); if (leaveEndDate < value) setLeaveEndDate(value); }}><small>{item.toLocaleDateString('en-US', { weekday: 'short' })}</small><strong>{item.getDate()}</strong><span>{item.toLocaleDateString('en-US', { month: 'short' })}</span></button>;
+              })}
+            </div>
+            <div className="leave-date-heading"><strong>End date</strong><span>{leaveEndDate}</span></div>
+            <div className="attendance-date-strip" aria-label="Select leave end date">
+              {leaveDates.filter((item) => localDateValue(item) >= leaveStartDate).map((item) => {
+                const value = localDateValue(item);
+                const isToday = value === localDateValue(today);
+                return <button key={`end-${value}`} className={`${isToday ? 'is-today' : 'is-upcoming'}${leaveEndDate === value ? ' is-selected' : ''}`} type="button" onClick={() => setLeaveEndDate(value)}><small>{item.toLocaleDateString('en-US', { weekday: 'short' })}</small><strong>{item.getDate()}</strong><span>{item.toLocaleDateString('en-US', { month: 'short' })}</span></button>;
+              })}
+            </div>
+            <button className="text-link attendance-load-more" type="button" onClick={() => setLeaveDateCount((count) => count + 5)}>Load next 5 days</button>
           </div>
           <div className="action-row"><button className="soft-button" type="button" onClick={() => setLeaveStep(1)}><ChevronLeft size={16} /> Back</button><button className="dark-button" type="button" disabled={saving || !leaveStartDate || !leaveEndDate || leaveEndDate < leaveStartDate} onClick={submitLeave}><Save size={16} /> {saving ? 'Submitting...' : 'Submit leave'}</button></div>
         </div>}
