@@ -760,6 +760,9 @@ button:disabled {
   min-inline-size: 0;
   box-sizing: border-box;
 }
+.attendance-ot-toggle { display: flex; align-items: center; gap: 9px; width: fit-content; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-soft); color: var(--ink); font-weight: 700; cursor: pointer; }
+.attendance-ot-toggle input { width: 18px; height: 18px; accent-color: #2f855a; }
+.attendance-ot-fields { padding-top: 2px; }
 
 
 .give-salary-button {
