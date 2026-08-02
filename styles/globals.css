@@ -692,6 +692,10 @@ button:disabled {
 .form-panel {
   padding: 12px;
 }
+.employee-onboarding-start { margin-bottom: 4px; }
+.employee-onboarding-steps { margin: 4px 0 16px; }
+.employee-onboarding-review { display: grid; gap: 14px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-soft); }
+.employee-onboarding-review .quick-view-details { margin: 0; }
 
 
 .form-panel form {
