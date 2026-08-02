@@ -883,8 +883,13 @@ export default function Home() {
   };
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    window.location.assign('/login');
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    } finally {
+      // A failed revocation request must not leave the UI looking signed in.
+      // The middleware/session endpoint remains the authority on the next load.
+      window.location.replace('/login');
+    }
   };
 
   const filteredEmployees = employees;
