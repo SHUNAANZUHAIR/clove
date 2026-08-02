@@ -569,7 +569,8 @@ export default function Home() {
         setEmployeeSaveStatus('Saved');
       } else {
         setProfileForm(emptyProfileForm);
-        setEmployeeSaveStatus('');
+        setEmployeeSaveStatus('Employee created');
+        setEmployeeFormExpanded(false);
       }
     } else {
       const data = await res.json().catch(() => null);
@@ -965,6 +966,15 @@ export default function Home() {
           <div className="content-stack">
             {activeTab === 'profile' && isSuperAdmin && (
               <>
+                <button className="give-salary-button employee-onboarding-start" type="button" onClick={() => {
+                  setEmployeeSaveStatus('');
+                  setProfileForm(emptyProfileForm);
+                  setEmployeeFormExpanded(true);
+                  requestAnimationFrame(() => document.getElementById('employee-onboarding')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+                }}>
+                  <Plus size={20} />
+                  NEW EMPLOYEE
+                </button>
                 <SectionHeader
                   title="Team"
                   action={(
@@ -1635,9 +1645,15 @@ function EmployeeForm({
   onToggle: () => void;
   onCancel: () => void;
 }) {
+  const [onboardingStep, setOnboardingStep] = useState(1);
   const selectedWorkSite = employeesSites.find((site) => site.id.toString() === form.site_id)
     || (!allowSiteSelection ? employeesSites[0] : undefined);
   const isCloveCafeEmployee = selectedWorkSite?.name.toLowerCase().includes('clove cafe') ?? false;
+  const onboarding = form.id === 0;
+
+  useEffect(() => {
+    if (!expanded || !onboarding) setOnboardingStep(1);
+  }, [expanded, onboarding]);
 
   return (
     <section className="form-panel" id="employee-onboarding">
@@ -1662,8 +1678,16 @@ function EmployeeForm({
         )}
       />
       {expanded && <form onSubmit={onSubmit}>
+        {onboarding && <div className="wizard-steps employee-onboarding-steps" aria-label="Employee onboarding steps">
+          {['Employee details', 'Review & create'].map((label, index) => (
+            <button key={label} className={`wizard-step ${onboardingStep === index + 1 ? 'is-current' : onboardingStep > index + 1 ? 'is-complete' : 'is-upcoming'}`} type="button" disabled={index + 1 > onboardingStep} onClick={() => setOnboardingStep(index + 1)}>
+              <span className="wizard-step-node">{onboardingStep > index + 1 ? <Check size={17} /> : index + 1}</span>
+              <span className="wizard-step-label">{label}</span>
+            </button>
+          ))}
+        </div>}
         <fieldset className="form-lock-fieldset">
-          <div className="form-grid">
+          {(!onboarding || onboardingStep === 1) && <div className="form-grid">
             <label>
               <span>Name</span>
               <input value={form.name} onChange={(event) => onChange({ ...form, name: event.target.value })} required />
@@ -1834,7 +1858,21 @@ function EmployeeForm({
                 </span>
               </div>
             </label>
-          </div>
+          </div>}
+          {onboarding && onboardingStep === 2 && <div className="employee-onboarding-review">
+            <div className="wizard-head"><div><h2>Review new employee</h2><span>Confirm these details before creating the employee record.</span></div></div>
+            <dl className="quick-view-details">
+              <div><dt>Name</dt><dd>{form.name || 'Not entered'}</dd></div>
+              <div><dt>Work site</dt><dd>{selectedWorkSite?.name || 'Not selected'}</dd></div>
+              <div><dt>Team group</dt><dd>{employeeGroups.find((group) => group.value === form.employee_type)?.label || form.employee_type}</dd></div>
+              <div><dt>Job level</dt><dd>{jobLevels.find((level) => level.value === form.job_level)?.label || form.job_level}</dd></div>
+              <div><dt>Join date</dt><dd>{form.join_date || 'Not entered'}</dd></div>
+              <div><dt>Salary</dt><dd>{form.salary || 'Not entered'}</dd></div>
+              <div><dt>Passport/ID</dt><dd>{form.id_number || 'Not entered'}</dd></div>
+              <div><dt>Payment medium</dt><dd>{form.medium}</dd></div>
+              {isCloveCafeEmployee && <><div><dt>Job title</dt><dd>{form.job_title || 'Not entered'}</dd></div><div><dt>Employment status</dt><dd>{form.employment_status === 'fixed_term' ? 'Fixed term' : 'Indefinite / permanent'}</dd></div></>}
+            </dl>
+          </div>}
           <div className="action-row">
             {saveStatus && <span className="save-confirmation" role="status">{saveStatus}</span>}
             {terminationEmployee && (
@@ -1853,10 +1891,17 @@ function EmployeeForm({
                 Cancel
               </button>
             )}
-            <button className="dark-button stretch" type="submit">
-              <Save size={16} />
-              Save
-            </button>
+            {onboarding && onboardingStep === 2 && <button className="soft-button" type="button" onClick={() => setOnboardingStep(1)}><ChevronLeft size={16} /> Back</button>}
+            {onboarding && onboardingStep === 1 ? (
+              <button className="dark-button stretch" type="button" disabled={!form.name.trim() || !form.salary || (allowSiteSelection && !form.site_id)} onClick={() => setOnboardingStep(2)}>
+                Review employee <ChevronRight size={16} />
+              </button>
+            ) : (
+              <button className="dark-button stretch" type="submit">
+                <Save size={16} />
+                {onboarding ? 'Create employee' : 'Save'}
+              </button>
+            )}
           </div>
         </fieldset>
       </form>}
