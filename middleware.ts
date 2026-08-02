@@ -24,6 +24,11 @@ async function validSessionId(value?: string) {
 export async function middleware(request: NextRequest) {
   const sessionId = await validSessionId(request.cookies.get(cookieName)?.value);
   const pathname = request.nextUrl.pathname.replace(/\/$/, '') || '/';
+  // Workflow endpoints perform their own Bearer-token authentication. The
+  // OpenAPI document must remain public so ChatGPT can import and refresh it.
+  if (pathname === '/api/clovehr/openapi' || pathname.startsWith('/api/clovehr/workflow')) {
+    return preventSharedCaching(NextResponse.next());
+  }
   if (pathname === '/login') {
     return preventSharedCaching(sessionId ? NextResponse.redirect(new URL('/', request.url)) : NextResponse.next());
   }

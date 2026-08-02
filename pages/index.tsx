@@ -107,6 +107,8 @@ interface AttendanceRecord {
   status: 'present' | 'absent' | 'leave' | 'off';
   in_time: string | null;
   out_time: string | null;
+  ot_in_time: string | null;
+  ot_out_time: string | null;
   notes: string;
 }
 
@@ -445,8 +447,10 @@ export default function Home() {
       setAttendanceRecords(records.map((record) => ({
         ...record,
         status: friday ? 'off' : record.status,
-        in_time: friday ? null : record.in_time || '09:00',
+        in_time: friday ? null : record.in_time || '07:00',
         out_time: friday ? null : record.out_time || '17:00',
+        ot_in_time: friday ? null : record.ot_in_time || null,
+        ot_out_time: friday ? null : record.ot_out_time || null,
       })));
     } catch (error) {
       console.error(error);
@@ -1928,8 +1932,10 @@ function AttendancePanel({
   const [journeySiteId, setJourneySiteId] = useState('');
   const [journeyIncludedIds, setJourneyIncludedIds] = useState<number[] | null>(null);
   const [visibleDateCount, setVisibleDateCount] = useState(5);
-  const [journeyInTime, setJourneyInTime] = useState('09:00');
+  const [journeyInTime, setJourneyInTime] = useState('07:00');
   const [journeyOutTime, setJourneyOutTime] = useState('17:00');
+  const [journeyOtInTime, setJourneyOtInTime] = useState('');
+  const [journeyOtOutTime, setJourneyOtOutTime] = useState('');
   const [attendanceConfirmation, setAttendanceConfirmation] = useState('');
   const [selectedAttendanceSite, setSelectedAttendanceSite] = useState('all');
   const [dateSelectionMode, setDateSelectionMode] = useState<'single' | 'between'>('single');
@@ -1977,6 +1983,8 @@ function AttendancePanel({
       status: fridaySelection ? 'off' as const : 'present' as const,
       in_time: fridaySelection ? null : journeyInTime,
       out_time: fridaySelection ? null : journeyOutTime,
+      ot_in_time: fridaySelection ? null : (journeyOtInTime || null),
+      ot_out_time: fridaySelection ? null : (journeyOtOutTime || null),
     }));
     await Promise.resolve(onSave(submittedRecords, date, attendanceScope === 'site' ? journeySiteId : 'all'));
     setAttendanceConfirmation(`${targetRecords.map((record) => record.employee_name).join(', ')} — attendance recorded.`);
@@ -1996,6 +2004,8 @@ function AttendancePanel({
           setJourneyStep(isSingleSiteLogin ? 2 : 1);
           setVisibleDateCount(5);
           setAttendanceConfirmation('');
+          setJourneyOtInTime('');
+          setJourneyOtOutTime('');
         }}>
           <ClipboardCheck size={20} />
           SUBMIT ATTENDANCE
@@ -2062,7 +2072,7 @@ function AttendancePanel({
             <div className="action-row"><button className="dark-button" type="button" disabled={targetRecords.length === 0} onClick={() => setJourneyStep(3)}>Continue <ChevronRight size={16} /></button></div>
           </div>}
           {journeyStep === 3 && <div className="wizard-panel">
-            {isFridayDate(date) ? <p className="friday-attendance-note">Friday is an off day. No in or out time will be recorded.</p> : <div className="form-grid compact-grid attendance-time-grid"><label><span>In time</span><input aria-label="Attendance in time" type="time" value={journeyInTime} onChange={(event) => setJourneyInTime(event.target.value)} /></label><label><span>Out time</span><input aria-label="Attendance out time" type="time" value={journeyOutTime} onChange={(event) => setJourneyOutTime(event.target.value)} /></label></div>}
+            {isFridayDate(date) ? <p className="friday-attendance-note">Friday is an off day. No in or out time will be recorded.</p> : <div className="form-grid compact-grid attendance-time-grid"><label><span>In time</span><input aria-label="Attendance in time" type="time" value={journeyInTime} onChange={(event) => setJourneyInTime(event.target.value)} /></label><label><span>Out time</span><input aria-label="Attendance out time" type="time" value={journeyOutTime} onChange={(event) => setJourneyOutTime(event.target.value)} /></label><label><span>OT in time</span><input aria-label="Overtime in time" type="time" value={journeyOtInTime} onChange={(event) => setJourneyOtInTime(event.target.value)} /></label><label><span>OT out time</span><input aria-label="Overtime out time" type="time" value={journeyOtOutTime} onChange={(event) => setJourneyOtOutTime(event.target.value)} /></label></div>}
             <div className="attendance-confirm-list">
               <div className="attendance-confirm-title"><UserCheck size={18} /><strong>{targetRecords.length} attending</strong><span>Untick anyone to remove</span></div>
               {scopeRecords.map((record) => {
@@ -2149,14 +2159,16 @@ function AttendancePanel({
               <th>Status</th>
               <th>In time</th>
               <th>Out time</th>
+              <th>OT in time</th>
+              <th>OT out time</th>
               <th>Notes</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr className="empty-table-row"><td colSpan={6}>Loading attendance...</td></tr>
+              <tr className="empty-table-row"><td colSpan={8}>Loading attendance...</td></tr>
             ) : visibleRecords.length === 0 ? (
-              <tr className="empty-table-row"><td colSpan={6}>No employees found</td></tr>
+              <tr className="empty-table-row"><td colSpan={8}>No employees found</td></tr>
             ) : visibleRecords.map((record) => (
               <tr key={record.employee_id} className={`attendance-status-${friday ? 'off' : record.status}`}>
                 <td><strong>{record.employee_name}</strong><small>{record.id_number || 'No ID'}</small></td>
@@ -2189,6 +2201,24 @@ function AttendancePanel({
                     type="time"
                     value={record.out_time || ''}
                     onChange={(event) => updateRecord(record.employee_id, { out_time: event.target.value || null })}
+                    disabled={friday}
+                  />
+                </td>
+                <td>
+                  <input
+                    aria-label={`OT in time for ${record.employee_name}`}
+                    type="time"
+                    value={record.ot_in_time || ''}
+                    onChange={(event) => updateRecord(record.employee_id, { ot_in_time: event.target.value || null })}
+                    disabled={friday}
+                  />
+                </td>
+                <td>
+                  <input
+                    aria-label={`OT out time for ${record.employee_name}`}
+                    type="time"
+                    value={record.ot_out_time || ''}
+                    onChange={(event) => updateRecord(record.employee_id, { ot_out_time: event.target.value || null })}
                     disabled={friday}
                   />
                 </td>
