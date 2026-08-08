@@ -144,6 +144,8 @@ export default function SubmitOt() {
   const [saving, setSaving] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [monthLocked, setMonthLocked] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState('');
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -225,6 +227,8 @@ export default function SubmitOt() {
       const data = await res.json();
       const saved = new Map<string, SavedRecord>((data.records || []).map((record: SavedRecord) => [record.date, record]));
       setRows(buildMonthDays(targetMonth, targetYear, saved));
+      setMonthLocked(Boolean(data.locked));
+      setLastUpdated(data.last_updated || '');
       setStep(2);
       setSessionExpired(false);
     } catch {
@@ -290,10 +294,19 @@ export default function SubmitOt() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(buildOtPayload()),
       });
-      if (!res.ok) throw new Error('save-failed');
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data?.error && res.status === 409) setMonthLocked(true);
+        throw new Error(data?.error || 'save-failed');
+      }
       setSaveMessage('Saved.');
-    } catch {
-      setError('Your progress could not be saved. Please try again.');
+      const refreshed = await fetch(`/api/public/ot?employee_id=${employeeId}&month=${viewMonth}&year=${viewYear}`);
+      if (refreshed.ok) {
+        const data = await refreshed.json();
+        setLastUpdated(data.last_updated || '');
+      }
+    } catch (saveError) {
+      setError(saveError instanceof Error && saveError.message !== 'save-failed' ? saveError.message : 'Your progress could not be saved. Please try again.');
     } finally {
       setSavingDraft(false);
     }
@@ -308,11 +321,15 @@ export default function SubmitOt() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(buildOtPayload()),
       });
-      if (!res.ok) throw new Error('save-failed');
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data?.error && res.status === 409) setMonthLocked(true);
+        throw new Error(data?.error || 'save-failed');
+      }
       clearDraft();
       setSubmitted(true);
-    } catch {
-      setError('Your timesheet could not be submitted. Please try again.');
+    } catch (submitError) {
+      setError(submitError instanceof Error && submitError.message !== 'save-failed' ? submitError.message : 'Your timesheet could not be submitted. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -353,10 +370,15 @@ export default function SubmitOt() {
           </div>
           <div className="ot-month-nav">
             <button className="icon-button small" type="button" title="Previous month" aria-label="Previous month" disabled={loadingSheet || isEarliestMonth} onClick={() => changeMonth(-1)}><ChevronLeft size={16} /></button>
-            <span className={`ot-month-badge ${isOngoingMonth ? 'is-ongoing' : 'is-past'}`}>{monthLabel}{!isOngoingMonth && <small> &middot; past month, regularize as needed</small>}</span>
+            <span className={`ot-month-badge ${monthLocked ? 'is-locked' : isOngoingMonth ? 'is-ongoing' : 'is-past'}`}>{monthLabel}{monthLocked ? <small>&middot; locked, salary paid</small> : !isOngoingMonth && <small> &middot; past month, regularize as needed</small>}</span>
             <button className="icon-button small" type="button" title="Next month" aria-label="Next month" disabled={loadingSheet || isOngoingMonth} onClick={() => changeMonth(1)}><ChevronRight size={16} /></button>
           </div>
-          <p className="ot-hint">Default hours are 7:00 AM to 6:00 PM. Add OT in/out times for any day you worked overtime — OT must fall between 6:00 PM and 11:59 PM the same day. Adjust any day, then submit.</p>
+          {monthLocked ? (
+            <p className="ot-hint ot-locked-hint">This month is locked because salary has already been paid. Contact your admin if it needs correcting.</p>
+          ) : (
+            <p className="ot-hint">Default hours are 7:00 AM to 6:00 PM. Add OT in/out times for any day you worked overtime — OT must fall between 6:00 PM and 11:59 PM the same day. Adjust any day, then submit.</p>
+          )}
+          {lastUpdated && <p className="ot-last-updated">Last updated {lastUpdated}</p>}
           <div className="table-shell ot-table-shell">
             <table className="salary-table ot-timesheet-table">
               <thead>
@@ -375,17 +397,17 @@ export default function SubmitOt() {
                     <td className="ot-row-date"><strong>{Number(row.date.slice(8, 10))}</strong> <small>{row.weekday}</small></td>
                     <td>
                       {row.isFriday ? <span className="status-pill off">off</span> : (
-                        <select aria-label={`Status for ${row.date}`} value={row.status} onChange={(event) => updateRow(row.date, { status: event.target.value as DayRow['status'] })}>
+                        <select aria-label={`Status for ${row.date}`} value={row.status} disabled={monthLocked} onChange={(event) => updateRow(row.date, { status: event.target.value as DayRow['status'] })}>
                           <option value="present">Present</option>
                           <option value="absent">Absent</option>
                           <option value="leave">Leave</option>
                         </select>
                       )}
                     </td>
-                    <td><Time24Select ariaLabel={`In time for ${row.date}`} value={row.in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(value) => updateRow(row.date, { in_time: value })} /></td>
-                    <td><Time24Select ariaLabel={`Out time for ${row.date}`} value={row.out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(value) => updateRow(row.date, { out_time: value })} /></td>
-                    <td><Time24Select ariaLabel={`OT in time for ${row.date}`} min={otWindowStart} max={otWindowEnd} value={row.ot_in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(value) => updateRow(row.date, { ot_in_time: clampOtTime(value) })} /></td>
-                    <td><Time24Select ariaLabel={`OT out time for ${row.date}`} min={otWindowStart} max={otWindowEnd} value={row.ot_out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(value) => updateRow(row.date, { ot_out_time: clampOtTime(value) })} /></td>
+                    <td><Time24Select ariaLabel={`In time for ${row.date}`} value={row.in_time} disabled={monthLocked || row.isFriday || row.status !== 'present'} onChange={(value) => updateRow(row.date, { in_time: value })} /></td>
+                    <td><Time24Select ariaLabel={`Out time for ${row.date}`} value={row.out_time} disabled={monthLocked || row.isFriday || row.status !== 'present'} onChange={(value) => updateRow(row.date, { out_time: value })} /></td>
+                    <td><Time24Select ariaLabel={`OT in time for ${row.date}`} min={otWindowStart} max={otWindowEnd} value={row.ot_in_time} disabled={monthLocked || row.isFriday || row.status !== 'present'} onChange={(value) => updateRow(row.date, { ot_in_time: clampOtTime(value) })} /></td>
+                    <td><Time24Select ariaLabel={`OT out time for ${row.date}`} min={otWindowStart} max={otWindowEnd} value={row.ot_out_time} disabled={monthLocked || row.isFriday || row.status !== 'present'} onChange={(value) => updateRow(row.date, { ot_out_time: clampOtTime(value) })} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -393,12 +415,12 @@ export default function SubmitOt() {
           </div>
           {error && <p className="login-error" role="alert">{error}</p>}
           {saveMessage && <p className="ot-save-message" role="status">{saveMessage}</p>}
-          <button className="soft-button full" type="button" disabled={saving || savingDraft} onClick={saveProgress}>
+          <button className="soft-button full" type="button" disabled={saving || savingDraft || monthLocked} onClick={saveProgress}>
             <Save size={16} /> {savingDraft ? 'Saving...' : 'Save progress'}
           </button>
           <div className="action-row">
             <button className="soft-button" type="button" onClick={() => setStep(1)}><ChevronLeft size={16} /> Back</button>
-            <button className="dark-button" type="button" disabled={saving || savingDraft} onClick={submitTimesheet}><Save size={16} /> {saving ? 'Submitting...' : 'Submit timesheet'}</button>
+            <button className="dark-button" type="button" disabled={saving || savingDraft || monthLocked} onClick={submitTimesheet}><Save size={16} /> {saving ? 'Submitting...' : 'Submit timesheet'}</button>
           </div>
         </>}
 

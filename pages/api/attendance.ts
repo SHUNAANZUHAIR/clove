@@ -3,6 +3,7 @@ import { query } from '../../lib/db';
 import { requestSiteId } from '../../lib/request-auth';
 
 const allowedStatuses = new Set(['present', 'absent', 'leave', 'off']);
+const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -65,6 +66,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const requestedEmployeeIds = records.map((record: { employee_id?: unknown }) => Number(record.employee_id)).filter(Number.isInteger);
       const allowedEmployees = await query('SELECT id FROM employees WHERE ($1 = -1 OR site_id = $1) AND id = ANY($2::int[])', [authenticatedSiteId, requestedEmployeeIds]);
       const allowedEmployeeIds = new Set(allowedEmployees.rows.map((row: { id: number }) => Number(row.id)));
+
+      // Once an employee's month has been paid out, their attendance for it
+      // is locked — block the whole save rather than silently dropping rows,
+      // so the admin has to consciously deal with a paid month before editing it.
+      const paidLookup = await query(
+        `SELECT s.employee_id, s.month, s.year, e.name
+         FROM salary_transactions s
+         JOIN employees e ON e.id = s.employee_id
+         WHERE s.employee_id = ANY($1::int[]) AND s.status = 'paid'`,
+        [Array.from(allowedEmployeeIds)]
+      );
+      const paidNameByKey = new Map<string, string>(
+        paidLookup.rows.map((row: { employee_id: number; month: number; year: number; name: string }) => [`${row.employee_id}_${row.year}_${row.month}`, row.name])
+      );
+      const lockedFor = new Set<string>();
+      for (const record of records) {
+        const employeeId = Number(record.employee_id);
+        if (!allowedEmployeeIds.has(employeeId)) continue;
+        for (const attendanceDate of dates) {
+          const name = paidNameByKey.get(`${employeeId}_${attendanceDate.slice(0, 4)}_${Number(attendanceDate.slice(5, 7))}`);
+          if (name) lockedFor.add(`${name} (${monthNames[Number(attendanceDate.slice(5, 7)) - 1]} ${attendanceDate.slice(0, 4)})`);
+        }
+      }
+      if (lockedFor.size > 0) {
+        return res.status(409).json({ error: `Attendance is locked for: ${Array.from(lockedFor).join(', ')} — salary has already been paid for that month.` });
+      }
 
       const rows: Array<[number, string, string, string, string | null, string | null, string | null, string | null, string]> = [];
       for (const record of records) {

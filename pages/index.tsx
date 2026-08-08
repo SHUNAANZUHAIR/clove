@@ -602,12 +602,15 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dates, records: recordsToSave, site_id: siteId === 'all' ? null : Number(siteId) }),
       });
-      if (!res.ok) throw new Error('Could not save attendance');
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || 'Could not save attendance');
+      }
       await fetchAttendance(attendanceDate);
       await fetchAttendanceHistory();
     } catch (error) {
       console.error(error);
-      alert('Attendance could not be saved. Please try again.');
+      alert(error instanceof Error ? error.message : 'Attendance could not be saved. Please try again.');
     } finally {
       setAttendanceSaving(false);
     }

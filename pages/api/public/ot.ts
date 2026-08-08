@@ -30,7 +30,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          WHERE employee_id = $1 AND EXTRACT(MONTH FROM attendance_date) = $2 AND EXTRACT(YEAR FROM attendance_date) = $3`,
         [employeeId, month, year]
       );
-      return res.status(200).json({ employee: employee.rows[0], records: result.rows });
+      const lastUpdatedResult = await query(
+        `SELECT to_char(MAX(updated_at), 'DD Mon YYYY, HH24:MI') AS last_updated
+         FROM attendance
+         WHERE employee_id = $1 AND EXTRACT(MONTH FROM attendance_date) = $2 AND EXTRACT(YEAR FROM attendance_date) = $3`,
+        [employeeId, month, year]
+      );
+      const locked = await isMonthPaid(employeeId, month, year);
+      return res.status(200).json({
+        employee: employee.rows[0],
+        records: result.rows,
+        locked,
+        last_updated: lastUpdatedResult.rows[0]?.last_updated || null,
+      });
     }
 
     if (req.method === 'POST') {
@@ -43,6 +55,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const employee = await query('SELECT id, site_id FROM employees WHERE id = $1 AND COALESCE(is_terminated, FALSE) = FALSE', [employeeId]);
       if (employee.rowCount === 0) return res.status(404).json({ error: 'Employee not found.' });
       const siteId = employee.rows[0].site_id;
+
+      // Self-service always submits one month at a time — once that month's
+      // salary is paid, the timesheet behind it is locked from further edits.
+      const firstDate = normalizeDate(records[0]?.date);
+      if (firstDate && (await isMonthPaid(employeeId, Number(firstDate.slice(5, 7)), Number(firstDate.slice(0, 4))))) {
+        return res.status(409).json({ error: 'This month is locked because salary has already been paid. Contact your admin if it needs correcting.' });
+      }
 
       const rows: Array<[number, string, string, string, string | null, string | null, string | null, string | null, string]> = [];
       for (const record of records) {
@@ -145,6 +164,14 @@ function normalizeOtTime(value: unknown) {
   if (time < '18:00') return '18:00';
   if (time > '23:59') return '23:59';
   return time;
+}
+
+async function isMonthPaid(employeeId: number, month: number, year: number) {
+  const result = await query(
+    `SELECT 1 FROM salary_transactions WHERE employee_id = $1 AND month = $2 AND year = $3 AND status = 'paid'`,
+    [employeeId, month, year]
+  );
+  return (result.rowCount ?? 0) > 0;
 }
 
 function isFridayDate(value: string) {
