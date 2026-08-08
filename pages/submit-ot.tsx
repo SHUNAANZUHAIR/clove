@@ -154,8 +154,8 @@ export default function SubmitOt() {
 
   return <>
     <Head><title>Submit Attendance | CloveHR</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
-    <main className="login-page ot-page">
-      <section className="login-card ot-card">
+    <main className={`login-page ot-page${step === 2 ? ' ot-page-sheet' : ''}`}>
+      <section className={`login-card ot-card${step === 2 ? ' ot-card-sheet' : ''}`}>
         <div className="login-brand"><span><CalendarClock size={25} /></span><div><p>CLOVE HR</p><h1>Submit Attendance</h1></div></div>
 
         {step === 1 && <>

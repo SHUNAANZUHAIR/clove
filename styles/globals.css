@@ -2249,6 +2249,16 @@ button:disabled {
 .login-collapse { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; }
 
 .ot-card { width: min(760px, 100%); min-width: 0; }
+
+/* Once the actual timesheet is showing, drop the login-style centered
+   card chrome (outer padding, vertical centering, rounded card padding)
+   so the table gets the full screen width instead of fighting it. */
+.ot-page-sheet { align-items: flex-start; padding: 10px; }
+.ot-card-sheet { width: 100%; padding: 14px 12px; border-radius: 12px; }
+@media (max-width: 640px) {
+  .ot-page-sheet { padding: 6px; }
+  .ot-card-sheet { padding: 12px 8px; border-radius: 10px; }
+}
 .ot-back-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; }
 .ot-wizard-head { margin-bottom: 4px; }
 .ot-hint { margin: 4px 0 12px; color: var(--muted); font-size: 0.78rem; line-height: 1.5; }
