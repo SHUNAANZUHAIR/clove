@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarClock, Check, ChevronLeft, Clock3, Save, UserCheck } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Check, ChevronLeft, Clock3, Download, Save, UserCheck } from 'lucide-react';
 
 interface RosterEmployee {
   id: number;
@@ -31,11 +31,13 @@ interface SavedRecord {
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const defaultInTime = '07:00';
 const defaultOutTime = '18:00';
-const defaultOtInTime = '18:00';
-const defaultOtOutTime = '00:00';
 
 function pad(value: number) {
   return String(value).padStart(2, '0');
+}
+
+function clampOtInTime(value: string) {
+  return value && value < '18:00' ? '18:00' : value;
 }
 
 function buildMonthDays(month: number, year: number, saved: Map<string, SavedRecord>): DayRow[] {
@@ -53,8 +55,8 @@ function buildMonthDays(month: number, year: number, saved: Map<string, SavedRec
       status: isFriday ? 'off' : ((existing?.status as DayRow['status']) || 'present'),
       in_time: isFriday ? '' : (existing?.in_time || defaultInTime),
       out_time: isFriday ? '' : (existing?.out_time || defaultOutTime),
-      ot_in_time: isFriday ? '' : (existing?.ot_in_time || defaultOtInTime),
-      ot_out_time: isFriday ? '' : (existing?.ot_out_time || defaultOtOutTime),
+      ot_in_time: isFriday ? '' : (existing?.ot_in_time || ''),
+      ot_out_time: isFriday ? '' : (existing?.ot_out_time || ''),
     });
   }
   return rows;
@@ -106,6 +108,15 @@ export default function SubmitOt() {
     setRows((current) => current.map((row) => (row.date === date ? { ...row, ...updates } : row)));
   };
 
+  const downloadTimesheetPdf = () => {
+    const link = document.createElement('a');
+    link.href = `/api/public/ot-pdf?employee_id=${employeeId}&month=${month}&year=${year}`;
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   const submitTimesheet = async () => {
     setError('');
     setSaving(true);
@@ -126,6 +137,7 @@ export default function SubmitOt() {
         }),
       });
       if (!res.ok) throw new Error('save-failed');
+      downloadTimesheetPdf();
       setStep(3);
     } catch {
       setError('Your timesheet could not be submitted. Please try again.');
@@ -162,7 +174,7 @@ export default function SubmitOt() {
             <div><h2>{selectedEmployee?.name}</h2><span>{monthLabel} timesheet</span></div>
             <button className="soft-button compact" type="button" onClick={() => setStep(1)}><ChevronLeft size={14} /> Change employee</button>
           </div>
-          <p className="ot-hint">Default hours are 7:00 AM to 6:00 PM, with OT from 6:00 PM to 12:00 AM. Adjust any day, then submit.</p>
+          <p className="ot-hint">Default hours are 7:00 AM to 6:00 PM. Add OT in/out times for any day you worked overtime — OT can only start at 6:00 PM or later. Adjust any day, then submit.</p>
           <div className="table-shell ot-table-shell">
             <table className="salary-table ot-timesheet-table">
               <thead>
@@ -178,8 +190,8 @@ export default function SubmitOt() {
               <tbody>
                 {rows.map((row) => (
                   <tr key={row.date} className={row.isFriday ? 'ot-friday-row' : undefined}>
-                    <td><strong>{Number(row.date.slice(8, 10))}</strong> <small>{row.weekday}</small></td>
-                    <td>
+                    <td className="ot-row-date"><strong>{Number(row.date.slice(8, 10))}</strong> <small>{row.weekday}</small></td>
+                    <td data-label="Status">
                       {row.isFriday ? <span className="status-pill off">off</span> : (
                         <select aria-label={`Status for ${row.date}`} value={row.status} onChange={(event) => updateRow(row.date, { status: event.target.value as DayRow['status'] })}>
                           <option value="present">Present</option>
@@ -188,10 +200,10 @@ export default function SubmitOt() {
                         </select>
                       )}
                     </td>
-                    <td><input aria-label={`In time for ${row.date}`} type="time" value={row.in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { in_time: event.target.value })} /></td>
-                    <td><input aria-label={`Out time for ${row.date}`} type="time" value={row.out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { out_time: event.target.value })} /></td>
-                    <td><input aria-label={`OT in time for ${row.date}`} type="time" value={row.ot_in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_in_time: event.target.value })} /></td>
-                    <td><input aria-label={`OT out time for ${row.date}`} type="time" value={row.ot_out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_out_time: event.target.value })} /></td>
+                    <td data-label="In"><input aria-label={`In time for ${row.date}`} type="time" value={row.in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { in_time: event.target.value })} /></td>
+                    <td data-label="Out"><input aria-label={`Out time for ${row.date}`} type="time" value={row.out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { out_time: event.target.value })} /></td>
+                    <td data-label="OT in"><input aria-label={`OT in time for ${row.date}`} type="time" min="18:00" max="23:59" value={row.ot_in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_in_time: clampOtInTime(event.target.value) })} /></td>
+                    <td data-label="OT out"><input aria-label={`OT out time for ${row.date}`} type="time" value={row.ot_out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_out_time: event.target.value })} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -207,7 +219,8 @@ export default function SubmitOt() {
         {step === 3 && <div className="wizard-panel attendance-success">
           <UserCheck size={30} />
           <h3>Timesheet submitted</h3>
-          <p>{selectedEmployee?.name}'s {monthLabel} timesheet has been recorded and is now available for payroll.</p>
+          <p>{selectedEmployee?.name}'s {monthLabel} timesheet has been recorded and is now available for payroll. A PDF copy has been downloaded.</p>
+          <button className="soft-button" type="button" onClick={downloadTimesheetPdf}><Download size={16} /> Download PDF again</button>
           <button className="dark-button" type="button" onClick={() => { setStep(1); setEmployeeId(''); setRows([]); }}><Check size={16} /> Submit another</button>
           <Link className="text-link ot-back-link" href="/login"><ArrowLeft size={14} /> Back to sign in</Link>
         </div>}

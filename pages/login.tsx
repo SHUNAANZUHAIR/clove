@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
-import { BriefcaseBusiness, CalendarClock, LockKeyhole, MapPin } from 'lucide-react';
+import { ArrowLeft, BriefcaseBusiness, CalendarClock, LockKeyhole, MapPin, UsersRound } from 'lucide-react';
 
 interface LoginSite { id: number; name: string; location?: string; }
 
@@ -11,6 +11,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [managePeopleOpen, setManagePeopleOpen] = useState(false);
 
   useEffect(() => { fetch('/api/auth/sites').then((res) => res.ok ? res.json() : []).then(setSites); }, []);
 
@@ -27,16 +28,27 @@ export default function Login() {
     <main className="login-page">
       <section className="login-card">
         <div className="login-brand"><span><BriefcaseBusiness size={25} /></span><div><p>CLOVE HR</p><h1>Welcome back</h1></div></div>
-        <p className="login-copy">Select your work site and enter the password to continue.</p>
-        <form onSubmit={submit}>
-          <label><span>Work site / username</span><div className="login-input"><MapPin size={17} /><select name="username" autoComplete="username" required value={siteId} onChange={(event) => setSiteId(event.target.value)}><option value="">Select site</option><option value="super_admin">Super Admin</option>{sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}</select></div></label>
-          <label><span>Password</span><div className="login-input"><LockKeyhole size={17} /><input name="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></div></label>
-          {error && <p className="login-error" role="alert">{error}</p>}
-          <button className="dark-button" type="submit" disabled={submitting || !siteId}>{submitting ? 'Signing in...' : 'Sign in to CloveHR'}</button>
-        </form>
-        <div className="login-links">
-          <Link className="soft-button" href="/submit-ot"><CalendarClock size={16} /> Submit Attendance</Link>
-        </div>
+
+        {!managePeopleOpen ? (
+          <>
+            <p className="login-copy">Submit your attendance, or sign in to manage a work site or the team.</p>
+            <div className="login-links login-links-primary">
+              <Link className="soft-button" href="/submit-ot"><CalendarClock size={16} /> Submit Attendance</Link>
+              <button className="soft-button" type="button" onClick={() => setManagePeopleOpen(true)}><UsersRound size={16} /> Manage people</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="login-copy">Select your work site and enter the password to continue.</p>
+            <form onSubmit={submit}>
+              <label><span>Work site / username</span><div className="login-input"><MapPin size={17} /><select name="username" autoComplete="username" required value={siteId} onChange={(event) => setSiteId(event.target.value)}><option value="">Select site</option><option value="super_admin">Super Admin</option>{sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}</select></div></label>
+              <label><span>Password</span><div className="login-input"><LockKeyhole size={17} /><input name="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></div></label>
+              {error && <p className="login-error" role="alert">{error}</p>}
+              <button className="dark-button" type="submit" disabled={submitting || !siteId}>{submitting ? 'Signing in...' : 'Sign in to CloveHR'}</button>
+            </form>
+            <button className="text-link login-collapse" type="button" onClick={() => { setManagePeopleOpen(false); setError(''); }}><ArrowLeft size={14} /> Back</button>
+          </>
+        )}
       </section>
     </main>
   </>;

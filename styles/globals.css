@@ -2245,12 +2245,14 @@ button:disabled {
 
 .login-links { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
 .login-links .soft-button { width: 100%; }
+.login-links-primary { margin-top: 4px; padding-top: 0; border-top: 0; }
+.login-collapse { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; }
 
-.ot-card { width: min(760px, 100%); }
+.ot-card { width: min(760px, 100%); min-width: 0; }
 .ot-back-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; }
 .ot-wizard-head { margin-bottom: 4px; }
 .ot-hint { margin: 4px 0 12px; color: var(--muted); font-size: 0.78rem; line-height: 1.5; }
-.ot-table-shell { margin-bottom: 14px; }
+.ot-table-shell { margin-bottom: 14px; min-width: 0; }
 .ot-timesheet-table { min-width: 640px; }
 .ot-timesheet-table th,
 .ot-timesheet-table td { padding: 6px 8px; white-space: nowrap; }
@@ -2258,7 +2260,26 @@ button:disabled {
 .ot-timesheet-table select { min-height: 32px; padding: 0 6px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--panel); font-size: 0.78rem; }
 .ot-timesheet-table input[type='time']:disabled,
 .ot-timesheet-table select:disabled { color: var(--muted); background: var(--panel-soft); }
-.ot-friday-row { background: var(--panel-soft); }
+.ot-friday-row,
+.ot-friday-row td { background: rgba(217, 45, 32, 0.08); }
+
+/* Below ~640px a horizontally-scrolled 6-column table is unusable on a
+   phone, so the timesheet collapses into one stacked card per day instead. */
+@media (max-width: 640px) {
+  .ot-table-shell { overflow-x: visible; }
+  .ot-timesheet-table { min-width: 0; width: 100%; display: block; }
+  .ot-timesheet-table thead { display: none; }
+  .ot-timesheet-table tbody { display: grid; gap: 8px; }
+  .ot-timesheet-table tr { display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--panel); }
+  .ot-timesheet-table td { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 3px 0; border: 0; white-space: normal; }
+  .ot-timesheet-table td[data-label]::before { content: attr(data-label); color: var(--muted); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+  .ot-timesheet-table td.ot-row-date { font-size: 0.92rem; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  .ot-timesheet-table td.ot-row-date::before { content: none; }
+  .ot-timesheet-table input[type='time'],
+  .ot-timesheet-table select { flex: 0 0 auto; min-height: 36px; }
+  .ot-wizard-head { flex-wrap: wrap; }
+  .ot-wizard-head button { flex: 0 0 auto; }
+}
 
 .attendance-summary-panel { margin-bottom: 4px; }
 .attendance-summary-table { min-width: 900px; }
