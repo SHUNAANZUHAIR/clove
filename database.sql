@@ -80,6 +80,9 @@ CREATE TABLE IF NOT EXISTS salary_transactions (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(employee_id, month, year)
 );
+ALTER TABLE salary_transactions ADD COLUMN IF NOT EXISTS ot_hours NUMERIC(6,2) NOT NULL DEFAULT 0;
+ALTER TABLE salary_transactions ADD COLUMN IF NOT EXISTS ot_rate NUMERIC(10,2) NOT NULL DEFAULT 0;
+ALTER TABLE salary_transactions ADD COLUMN IF NOT EXISTS ot_amount NUMERIC(10,2) NOT NULL DEFAULT 0;
 
 
 -- Create daily employee attendance table

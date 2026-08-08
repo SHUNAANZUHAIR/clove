@@ -47,7 +47,10 @@ function clampOtTime(value: string) {
 }
 
 function buildMonthDays(month: number, year: number, saved: Map<string, SavedRecord>): DayRow[] {
-  const lastDay = new Date(year, month, 0).getDate();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const today = new Date();
+  const isOngoingMonth = month === today.getMonth() + 1 && year === today.getFullYear();
+  const lastDay = isOngoingMonth ? Math.min(daysInMonth, today.getDate()) : daysInMonth;
   const rows: DayRow[] = [];
   for (let day = 1; day <= lastDay; day += 1) {
     const date = `${year}-${pad(month)}-${pad(day)}`;
@@ -233,7 +236,7 @@ export default function SubmitOt() {
           <p>{selectedEmployee?.name}'s {monthLabel} timesheet has been recorded and is now available for payroll.</p>
           <button className="text-link ot-success-download" type="button" onClick={downloadTimesheetPdf}><Download size={15} /> Click here to download PDF</button>
           <div className="action-row">
-            <button className="soft-button" type="button" onClick={() => setSubmitted(false)}>Close</button>
+            <button className="soft-button" type="button" onClick={() => window.location.assign('/login')}>Close</button>
             <button className="dark-button" type="button" onClick={() => { setSubmitted(false); setStep(1); setEmployeeId(''); setRows([]); }}><Check size={16} /> Submit another</button>
           </div>
         </div>

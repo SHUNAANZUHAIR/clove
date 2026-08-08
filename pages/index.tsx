@@ -85,6 +85,9 @@ interface SalaryTransaction {
   absent_days: number;
   absent_deduction: number;
   cash_advance: number;
+  ot_hours: number;
+  ot_rate: number;
+  ot_amount: number;
   net_salary: number;
   status: string;
 }
@@ -332,6 +335,8 @@ const freshSalaryForm = () => ({
   absent_days: 0,
   absent_deduction: 0,
   cash_advance: 0,
+  ot_hours: 0,
+  ot_rate: 0,
   net_salary: 0,
   status: 'paid',
 });
@@ -1303,6 +1308,9 @@ export default function Home() {
                                       <div><dt>Base salary</dt><dd>{formatCurrency(transaction.base_salary)}</dd></div>
                                       <div><dt>Absent days</dt><dd>{transaction.absent_days}</dd></div>
                                       <div><dt>Absent deduction</dt><dd>{formatCurrency(transaction.absent_deduction)}</dd></div>
+                                      <div><dt>OT hours</dt><dd>{transaction.ot_hours || 0}</dd></div>
+                                      <div><dt>OT rate / hour</dt><dd>{formatCurrency(transaction.ot_rate)}</dd></div>
+                                      <div><dt>OT amount</dt><dd>{formatCurrency(transaction.ot_amount)}</dd></div>
                                       <div><dt>Other deduction</dt><dd>{formatCurrency(transaction.cash_advance)}</dd></div>
                                     </dl>
                                   </td>
@@ -2582,6 +2590,11 @@ function SalaryJourney({
 	  const canSubmit = hasTarget && selectedMonthEligible && !selectedMonthPaid;
 	  const canAdvance = hasTarget && (step === 1 ? hasEligibleMonth : canSubmit);
 	  const totalOtherDeduction = Number(form.cash_advance || 0) * Math.max(targetEmployees.length, 1);
+	  const defaultOtRate = targetEmployees.length > 0
+	    ? roundMoney(targetEmployees.reduce((sum, employee) => sum + getDefaultOtRate(employee), 0) / targetEmployees.length)
+	    : 0;
+	  const effectiveOtRate = Number(form.ot_rate) > 0 ? Number(form.ot_rate) : defaultOtRate;
+	  const totalOtAmount = targetEmployees.reduce((sum, employee) => sum + calculateEmployeeSalary(employee, form).ot_amount, 0);
 
   const setAbsentDays = (value: number) => {
     const absentDays = Math.max(0, Math.min(salaryPeriodDays, Number(value) || 0));
@@ -2597,6 +2610,14 @@ function SalaryJourney({
       ...form,
       cash_advance: Math.max(0, Number(value) || 0),
     });
+  };
+
+  const setOtHours = (value: number) => {
+    onChange({ ...form, ot_hours: Math.max(0, Number(value) || 0) });
+  };
+
+  const setOtRate = (value: number) => {
+    onChange({ ...form, ot_rate: Math.max(0, Number(value) || 0) });
   };
 
 	  const handleEmployeeToggle = (employeeId: number, checked: boolean) => {
@@ -2815,7 +2836,16 @@ function SalaryJourney({
                   <span>Absent deduction</span>
                   <input type="number" step="0.01" value={form.absent_deduction} readOnly />
                 </label>
+                <label>
+                  <span>OT hours</span>
+                  <input type="number" min="0" step="0.5" value={form.ot_hours} onChange={(event) => setOtHours(parseFloat(event.target.value) || 0)} />
+                </label>
+                <label>
+                  <span>OT rate / hour</span>
+                  <input type="number" min="0" step="0.01" value={form.ot_rate > 0 ? form.ot_rate : defaultOtRate} onChange={(event) => setOtRate(parseFloat(event.target.value) || 0)} />
+                </label>
               </div>
+              <p className="salary-proration-note">OT rate defaults to each employee&rsquo;s basic-salary hourly rate ({formatCurrency(defaultOtRate)}/hr); edit it to apply a different rate to everyone selected.</p>
             </div>
           )}
 
@@ -2838,6 +2868,7 @@ function SalaryJourney({
               <dl className="salary-review-grid">
                 <div><dt>Basic</dt><dd>{formatCurrency(targetBaseSalary)}</dd></div>
                 <div><dt>Absent deduction</dt><dd>{formatCurrency(form.absent_deduction)}</dd></div>
+                <div><dt>OT ({form.ot_hours || 0} hrs @ {formatCurrency(effectiveOtRate)})</dt><dd>{formatCurrency(totalOtAmount)}</dd></div>
                 <div><dt>Other deduction</dt><dd>{formatCurrency(totalOtherDeduction)}</dd></div>
                 <div><dt>Net salary</dt><dd>{formatCurrency(form.net_salary)}</dd></div>
               </dl>
@@ -3168,13 +3199,24 @@ function calculateEmployeeSalary(employee: Employee, form: ReturnType<typeof fre
   const cashAdvance = Math.max(0, Number(form.cash_advance) || 0);
   const dailyRate = Number(employee.salary || 0) / salaryPeriodDays;
   const absentDeduction = dailyRate * absentDays;
-  const netSalary = Math.max(0, dailyRate * workedDays - cashAdvance);
+  const otRate = Number(form.ot_rate) > 0 ? Number(form.ot_rate) : getDefaultOtRate(employee);
+  const otHours = Math.max(0, Number(form.ot_hours) || 0);
+  const otAmount = otHours * otRate;
+  const netSalary = Math.max(0, dailyRate * workedDays - cashAdvance + otAmount);
 
   return {
     daily_rate: roundMoney(dailyRate),
     absent_deduction: roundMoney(absentDeduction),
+    ot_rate: roundMoney(otRate),
+    ot_amount: roundMoney(otAmount),
     net_salary: roundMoney(netSalary),
   };
+}
+
+function getDefaultOtRate(employee: Employee) {
+  const dailyRate = Number(employee.salary || 0) / salaryPeriodDays;
+  const hoursPerDay = Number(employee.hours_per_day) > 0 ? Number(employee.hours_per_day) : 8;
+  return dailyRate / hoursPerDay;
 }
 
 function getEligiblePayrollDays(joinDate: string | null | undefined, salaryMonth: number, businessYear: number) {

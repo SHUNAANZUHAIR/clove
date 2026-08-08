@@ -7,6 +7,9 @@ import { requestSiteId, isSuperAdmin } from '../../lib/request-auth';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_terminated BOOLEAN NOT NULL DEFAULT FALSE');
+    await query('ALTER TABLE salary_transactions ADD COLUMN IF NOT EXISTS ot_hours NUMERIC(6,2) NOT NULL DEFAULT 0');
+    await query('ALTER TABLE salary_transactions ADD COLUMN IF NOT EXISTS ot_rate NUMERIC(10,2) NOT NULL DEFAULT 0');
+    await query('ALTER TABLE salary_transactions ADD COLUMN IF NOT EXISTS ot_amount NUMERIC(10,2) NOT NULL DEFAULT 0');
     const authenticatedSiteId = requestSiteId(req);
     if (!isSuperAdmin(authenticatedSiteId)) return res.status(403).json({ error: 'Only super admin can access payroll.' });
     if (req.method === 'GET') {
@@ -23,6 +26,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           s.absent_days,
           s.absent_deduction::float AS absent_deduction,
           s.cash_advance::float AS cash_advance,
+          s.ot_hours::float AS ot_hours,
+          s.ot_rate::float AS ot_rate,
+          s.ot_amount::float AS ot_amount,
           s.net_salary::float AS net_salary,
           s.status,
           s.created_at,
@@ -71,6 +77,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         worked_days,
         absent_days,
         cash_advance,
+        ot_hours,
+        ot_rate,
 	        status,
 	      } = req.body;
 
@@ -119,20 +127,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             salaryMonth,
             businessYear,
             absent_days,
-            cash_advance
+            cash_advance,
+            ot_hours,
+            ot_rate,
+            target.hours_per_day
           );
         const result = await query(
-          `INSERT INTO salary_transactions 
-           (employee_id, month, year, worked_days, daily_rate, absent_days, 
-            absent_deduction, cash_advance, net_salary, status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-           ON CONFLICT (employee_id, month, year) 
-           DO UPDATE SET 
+          `INSERT INTO salary_transactions
+           (employee_id, month, year, worked_days, daily_rate, absent_days,
+            absent_deduction, cash_advance, ot_hours, ot_rate, ot_amount, net_salary, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+           ON CONFLICT (employee_id, month, year)
+           DO UPDATE SET
              worked_days = EXCLUDED.worked_days,
              daily_rate = EXCLUDED.daily_rate,
              absent_days = EXCLUDED.absent_days,
              absent_deduction = EXCLUDED.absent_deduction,
              cash_advance = EXCLUDED.cash_advance,
+             ot_hours = EXCLUDED.ot_hours,
+             ot_rate = EXCLUDED.ot_rate,
+             ot_amount = EXCLUDED.ot_amount,
              net_salary = EXCLUDED.net_salary,
              status = EXCLUDED.status,
              updated_at = CURRENT_TIMESTAMP
@@ -147,6 +161,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
              absent_days,
              absent_deduction::float AS absent_deduction,
              cash_advance::float AS cash_advance,
+             ot_hours::float AS ot_hours,
+             ot_rate::float AS ot_rate,
+             ot_amount::float AS ot_amount,
              net_salary::float AS net_salary,
              status,
              created_at,
@@ -160,6 +177,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             calculated.absent_days,
             calculated.absent_deduction,
             calculated.cash_advance,
+            calculated.ot_hours,
+            calculated.ot_rate,
+            calculated.ot_amount,
             calculated.net_salary,
             status || 'paid',
           ]
@@ -192,6 +212,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
            absent_days,
            absent_deduction::float AS absent_deduction,
            cash_advance::float AS cash_advance,
+           ot_hours::float AS ot_hours,
+           ot_rate::float AS ot_rate,
+           ot_amount::float AS ot_amount,
            net_salary::float AS net_salary,
            status,
            created_at,
@@ -235,38 +258,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 async function getSalaryTargets(siteId: number, employeeIds: number[] = [], jobLevel?: string) {
   if (employeeIds.length === 0 && !jobLevel) {
     const result = await query(
-      `SELECT DISTINCT e.id, e.salary::float AS salary, to_char(e.join_date, 'YYYY-MM-DD') AS join_date
+      `SELECT DISTINCT e.id, e.salary::float AS salary, to_char(e.join_date, 'YYYY-MM-DD') AS join_date, e.hours_per_day::float AS hours_per_day
        FROM employees e
        LEFT JOIN site_team st ON st.employee_id = e.id
        WHERE ($1 = -1 OR e.site_id = $1 OR st.site_id = $1) AND COALESCE(e.is_terminated, FALSE) = FALSE
        ORDER BY e.id`,
       [siteId]
     );
-    return result.rows as Array<{ id: number; salary: number; join_date: string | null }>;
+    return result.rows as Array<{ id: number; salary: number; join_date: string | null; hours_per_day: number | null }>;
   }
 
 
   if (employeeIds.length > 0) {
     const result = await query(
-      `SELECT id, salary::float AS salary, to_char(join_date, 'YYYY-MM-DD') AS join_date
+      `SELECT id, salary::float AS salary, to_char(join_date, 'YYYY-MM-DD') AS join_date, hours_per_day::float AS hours_per_day
        FROM employees
        WHERE id = ANY($1::int[]) AND ($2 = -1 OR site_id = $2) AND COALESCE(is_terminated, FALSE) = FALSE
        ORDER BY id`,
       [employeeIds, siteId]
     );
-    return result.rows as Array<{ id: number; salary: number; join_date: string | null }>;
+    return result.rows as Array<{ id: number; salary: number; join_date: string | null; hours_per_day: number | null }>;
   }
 
 
   if (jobLevel) {
     const result = await query(
-      `SELECT id, salary::float AS salary, to_char(join_date, 'YYYY-MM-DD') AS join_date
+      `SELECT id, salary::float AS salary, to_char(join_date, 'YYYY-MM-DD') AS join_date, hours_per_day::float AS hours_per_day
        FROM employees
        WHERE COALESCE(job_level, 'labour') = $1 AND ($2 = -1 OR site_id = $2) AND COALESCE(is_terminated, FALSE) = FALSE
        ORDER BY id`,
       [jobLevel, siteId]
     );
-    return result.rows as Array<{ id: number; salary: number; join_date: string | null }>;
+    return result.rows as Array<{ id: number; salary: number; join_date: string | null; hours_per_day: number | null }>;
   }
 
 
@@ -309,7 +332,17 @@ function isSalaryMonthAfterJoinDate(joinDate: string | null, salaryMonth: number
 }
 
 
-export function calculateSalary(baseSalary: number, joinDate: string | null, salaryMonth: number, businessYear: number, absentDaysInput: number, cashAdvanceInput: number) {
+export function calculateSalary(
+  baseSalary: number,
+  joinDate: string | null,
+  salaryMonth: number,
+  businessYear: number,
+  absentDaysInput: number,
+  cashAdvanceInput: number,
+  otHoursInput?: number,
+  otRateInput?: number,
+  hoursPerDay?: number | null
+) {
   const eligibleDays = getEligiblePayrollDays(joinDate, salaryMonth, businessYear);
   const absent_days = Math.min(eligibleDays, Math.max(0, Number(absentDaysInput) || 0));
   const worked_days = Math.max(0, eligibleDays - absent_days);
@@ -317,7 +350,11 @@ export function calculateSalary(baseSalary: number, joinDate: string | null, sal
   const rawDailyRate = Number(baseSalary || 0) / 30;
   const daily_rate = roundMoney(rawDailyRate);
   const absent_deduction = roundMoney(rawDailyRate * absent_days);
-  const net_salary = roundMoney(Math.max(0, rawDailyRate * worked_days - cash_advance));
+  const defaultOtRate = rawDailyRate / (Number(hoursPerDay) > 0 ? Number(hoursPerDay) : 8);
+  const ot_hours = Math.max(0, Number(otHoursInput) || 0);
+  const ot_rate = roundMoney(Number(otRateInput) > 0 ? Number(otRateInput) : defaultOtRate);
+  const ot_amount = roundMoney(ot_hours * ot_rate);
+  const net_salary = roundMoney(Math.max(0, rawDailyRate * worked_days - cash_advance + ot_amount));
 
 
   return {
@@ -326,6 +363,9 @@ export function calculateSalary(baseSalary: number, joinDate: string | null, sal
     absent_days,
     absent_deduction,
     cash_advance,
+    ot_hours,
+    ot_rate,
+    ot_amount,
     net_salary,
   };
 }

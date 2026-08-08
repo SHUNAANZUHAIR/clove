@@ -19,6 +19,9 @@ export interface SalarySlipRow {
   absent_days: number;
   absent_deduction: number;
   cash_advance: number;
+  ot_hours: number;
+  ot_rate: number;
+  ot_amount: number;
   net_salary: number;
   status: string;
   agreement_verification_token: string | null;
@@ -45,6 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         e.salary::float AS base_salary, e.medium, s.month, s.year, s.worked_days,
         s.daily_rate::float AS daily_rate, s.absent_days,
         s.absent_deduction::float AS absent_deduction, s.cash_advance::float AS cash_advance,
+        s.ot_hours::float AS ot_hours, s.ot_rate::float AS ot_rate, s.ot_amount::float AS ot_amount,
         s.net_salary::float AS net_salary, s.status, e.agreement_verification_token
       FROM salary_transactions s
       JOIN employees e ON e.id = s.employee_id
@@ -129,6 +133,11 @@ function renderSalarySlip(row: SalarySlipRow) {
     ['Daily rate (30-day basis)', money(row.daily_rate)],
     ['Absent days', String(row.absent_days)],
     ['Absent deduction', `- ${money(row.absent_deduction)}`],
+    ...(row.ot_hours > 0 ? [
+      ['OT hours', String(row.ot_hours)] as [string, string],
+      ['OT rate / hour', money(row.ot_rate)] as [string, string],
+      ['OT amount', `+ ${money(row.ot_amount)}`] as [string, string],
+    ] : []),
     ['Other deduction / cash advance', `- ${money(row.cash_advance)}`],
   ];
   calculationRows.forEach(([label, value], index) => {
