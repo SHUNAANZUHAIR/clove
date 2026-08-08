@@ -299,7 +299,7 @@ export default function SubmitOt() {
 
         {step === 1 && <>
           {sessionExpired && <p className="login-error" role="alert">Your session timed out after 5 minutes of inactivity. Please select your name again.</p>}
-          <p className="login-copy">Select your name to submit your timesheet for {monthLabel}. No login is required.</p>
+          <p className="login-copy">Select your name to submit your timesheet. No login is required.</p>
           <div className="form-grid compact-grid">
             <label><span>Your name</span>
               <select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} disabled={employeesLoading}>
@@ -326,7 +326,7 @@ export default function SubmitOt() {
           </div>
           <div className="ot-month-nav">
             <button className="icon-button small" type="button" title="Previous month" aria-label="Previous month" disabled={loadingSheet || isEarliestMonth} onClick={() => changeMonth(-1)}><ChevronLeft size={16} /></button>
-            <span>{monthLabel}{!isOngoingMonth && <small> &middot; past month, regularize as needed</small>}</span>
+            <span className={`ot-month-badge ${isOngoingMonth ? 'is-ongoing' : 'is-past'}`}>{monthLabel}{!isOngoingMonth && <small> &middot; past month, regularize as needed</small>}</span>
             <button className="icon-button small" type="button" title="Next month" aria-label="Next month" disabled={loadingSheet || isOngoingMonth} onClick={() => changeMonth(1)}><ChevronRight size={16} /></button>
           </div>
           <p className="ot-hint">Default hours are 7:00 AM to 6:00 PM. Add OT in/out times for any day you worked overtime — OT must fall between 6:00 PM and 11:59 PM the same day. Adjust any day, then submit.</p>

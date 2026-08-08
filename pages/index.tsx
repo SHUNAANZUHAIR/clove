@@ -389,7 +389,6 @@ export default function Home() {
   });
   const [salaryJourneyOpen, setSalaryJourneyOpen] = useState(false);
   const autoOpenedSalaryJourney = useRef(false);
-  const appliedDefaultTab = useRef(false);
   const [salaryStep, setSalaryStep] = useState(1);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [expandedEmployeeGroups, setExpandedEmployeeGroups] = useState<Record<EmployeeType, boolean>>({
@@ -406,20 +405,19 @@ export default function Home() {
     if (loading) return;
     if (!isSuperAdmin && (activeTab === 'profile' || activeTab === 'salary')) {
       setActiveTab('attendance');
-    } else if (isSuperAdmin && activeTab === 'profile' && !appliedDefaultTab.current) {
-      // Salary is the default landing tab for super admin — but only once,
-      // on initial load, so manually clicking back to Team afterward sticks.
-      appliedDefaultTab.current = true;
-      setActiveTab('salary');
     }
+    // Team (the 'profile' tab) is super admin's default — Manage people
+    // leads there. Only the Process Salary shortcut below overrides it.
   }, [loading, isSuperAdmin, activeTab]);
 
   // Arriving via the login screen's "Process Salary" shortcut (?tab=salary)
-  // opens the Give Salary card immediately, not just the Salary tab.
+  // lands on Salary with the Give Salary card open immediately, instead of
+  // the usual Team default.
   useEffect(() => {
     if (loading || !isSuperAdmin || autoOpenedSalaryJourney.current || typeof window === 'undefined') return;
     if (new URLSearchParams(window.location.search).get('tab') === 'salary') {
       autoOpenedSalaryJourney.current = true;
+      setActiveTab('salary');
       startSalaryJourney();
     }
   }, [loading, isSuperAdmin]);

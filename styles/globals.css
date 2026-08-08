@@ -2287,7 +2287,12 @@ button:disabled {
 .ot-wizard-head { margin-bottom: 4px; }
 .ot-month-nav { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; }
 .ot-month-nav span { min-width: 0; color: var(--ink); font-size: 0.86rem; font-weight: 600; text-align: center; }
-.ot-month-nav span small { display: block; color: var(--muted); font-size: 0.68rem; font-weight: 500; }
+.ot-month-nav span small { display: block; font-size: 0.68rem; font-weight: 500; }
+.ot-month-badge { padding: 6px 14px; border-radius: 999px; border: 1px solid transparent; }
+.ot-month-badge.is-ongoing { background: var(--primary); border-color: var(--primary-line); color: var(--primary-ink); }
+.ot-month-badge.is-ongoing small { color: var(--primary-ink); opacity: 0.75; }
+.ot-month-badge.is-past { background: #fbf1de; border-color: #e9cd93; color: var(--warning); }
+.ot-month-badge.is-past small { color: var(--warning); opacity: 0.8; }
 .ot-hint { margin: 4px 0 12px; color: var(--muted); font-size: 0.78rem; line-height: 1.5; }
 .ot-table-shell { margin-bottom: 14px; min-width: 0; }
 .ot-timesheet-table { min-width: 640px; }
