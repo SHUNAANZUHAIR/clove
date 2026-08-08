@@ -1,7 +1,9 @@
 // Per-employee attendance + payroll summary shown under "Give salary" on the
-// super admin dashboard. Hours are derived from the attendance table for the
-// requested month; deduction/payout figures come from the matching
-// salary_transactions row (null until that month's salary has been given).
+// super admin dashboard. Only lists employees who actually have an
+// attendance record for the requested month (an inner join, not every
+// employee) — hours are derived from the attendance table; deduction/payout
+// figures come from the matching salary_transactions row (null until that
+// month's salary has been given).
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../../lib/db';
 import { requestSiteId, isSuperAdmin } from '../../../lib/request-auth';
@@ -30,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          s.net_salary::float AS total_payout,
          s.status AS payout_status
        FROM employees e
-       LEFT JOIN (
+       INNER JOIN (
          SELECT
            employee_id,
            COUNT(*) FILTER (WHERE status = 'present') AS days_worked,
