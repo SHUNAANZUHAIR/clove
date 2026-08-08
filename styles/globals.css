@@ -2280,6 +2280,7 @@ button:disabled {
    so the table gets the full screen width instead of fighting it. */
 .ot-page-sheet { align-items: flex-start; padding: 10px; }
 .ot-card-sheet { width: 100%; padding: 14px 12px; border-radius: 12px; }
+.ot-card-sheet .action-row { margin-bottom: 16px; }
 @media (max-width: 640px) {
   .ot-page-sheet { padding: 6px; }
   .ot-card-sheet { padding: 12px 8px; border-radius: 10px; }
