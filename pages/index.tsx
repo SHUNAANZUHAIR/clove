@@ -363,7 +363,11 @@ export default function Home() {
   const [selectedAgreementIds, setSelectedAgreementIds] = useState<number[]>([]);
   const [quickViewEmployee, setQuickViewEmployee] = useState<Employee | null>(null);
   const [teamSelections, setTeamSelections] = useState<Record<number, string>>({});
-  const [loading, setLoading] = useState(false);
+  // Starts true (not false) so the tab-default effect below doesn't fire on
+  // the very first render with stale isSuperAdmin=false, before the actual
+  // session has loaded — that race previously locked super admin onto
+  // Attendance and prevented the Salary default from ever taking effect.
+  const [loading, setLoading] = useState(true);
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().slice(0, 10));
   const [attendanceEndDate, setAttendanceEndDate] = useState(new Date().toISOString().slice(0, 10));
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
