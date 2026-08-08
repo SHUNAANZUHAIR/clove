@@ -44,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (employee.rowCount === 0) return res.status(404).json({ error: 'Employee not found.' });
       const siteId = employee.rows[0].site_id;
 
-      const rows: Array<[number, string, string, string, string | null, string | null, string | null, string | null]> = [];
+      const rows: Array<[number, string, string, string, string | null, string | null, string | null, string | null, string]> = [];
       for (const record of records) {
         const date = normalizeDate(record?.date);
         if (!date) continue;
@@ -60,22 +60,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           friday ? null : normalizeTime(record?.out_time),
           friday ? null : normalizeOtTime(record?.ot_in_time),
           friday ? null : normalizeOtTime(record?.ot_out_time),
+          'self_service',
         ]);
       }
       if (rows.length === 0) return res.status(400).json({ error: 'No valid timesheet rows supplied.' });
 
       const params = rows.flat();
       const placeholders = rows.map((_, index) => {
-        const offset = index * 8;
-        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8})`;
+        const offset = index * 9;
+        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9})`;
       }).join(', ');
       await query(
-        `INSERT INTO attendance (employee_id, attendance_date, status, notes, in_time, out_time, ot_in_time, ot_out_time)
+        `INSERT INTO attendance (employee_id, attendance_date, status, notes, in_time, out_time, ot_in_time, ot_out_time, source)
          VALUES ${placeholders}
          ON CONFLICT (employee_id, attendance_date)
          DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes,
            in_time = EXCLUDED.in_time, out_time = EXCLUDED.out_time,
            ot_in_time = EXCLUDED.ot_in_time, ot_out_time = EXCLUDED.ot_out_time,
+           source = EXCLUDED.source,
            updated_at = CURRENT_TIMESTAMP`,
         params
       );
@@ -113,6 +115,7 @@ async function ensureAttendanceTables() {
       UNIQUE(employee_id, attendance_date)
     )
   `);
+  await query("ALTER TABLE attendance ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'admin'");
   await query(`
     CREATE TABLE IF NOT EXISTS attendance_save_history (
       id SERIAL PRIMARY KEY,

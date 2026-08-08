@@ -101,6 +101,8 @@ ALTER TABLE attendance ADD COLUMN IF NOT EXISTS in_time TIME;
 ALTER TABLE attendance ADD COLUMN IF NOT EXISTS out_time TIME;
 ALTER TABLE attendance ADD COLUMN IF NOT EXISTS ot_in_time TIME;
 ALTER TABLE attendance ADD COLUMN IF NOT EXISTS ot_out_time TIME;
+-- 'admin' = entered via the super admin's Submit Attendance tool, 'self_service' = the employee's own public Submit Attendance page.
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'admin';
 
 
 -- Create indexes for better performance

@@ -66,7 +66,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const allowedEmployees = await query('SELECT id FROM employees WHERE ($1 = -1 OR site_id = $1) AND id = ANY($2::int[])', [authenticatedSiteId, requestedEmployeeIds]);
       const allowedEmployeeIds = new Set(allowedEmployees.rows.map((row: { id: number }) => Number(row.id)));
 
-      const rows: Array<[number, string, string, string, string | null, string | null, string | null, string | null]> = [];
+      const rows: Array<[number, string, string, string, string | null, string | null, string | null, string | null, string]> = [];
       for (const record of records) {
         const employeeId = Number(record.employee_id);
         const status = String(record.status || '').toLowerCase();
@@ -86,6 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             friday ? null : outTime,
             friday ? null : otInTime,
             friday ? null : otOutTime,
+            'admin',
           ]);
         }
       }
@@ -93,16 +94,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const params = rows.flat();
       const placeholders = rows.map((_, index) => {
-        const offset = index * 8;
-        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8})`;
+        const offset = index * 9;
+        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9})`;
       }).join(', ');
       await query(`
-        INSERT INTO attendance (employee_id, attendance_date, status, notes, in_time, out_time, ot_in_time, ot_out_time)
+        INSERT INTO attendance (employee_id, attendance_date, status, notes, in_time, out_time, ot_in_time, ot_out_time, source)
         VALUES ${placeholders}
         ON CONFLICT (employee_id, attendance_date)
         DO UPDATE SET status = EXCLUDED.status, notes = EXCLUDED.notes,
           in_time = EXCLUDED.in_time, out_time = EXCLUDED.out_time,
           ot_in_time = EXCLUDED.ot_in_time, ot_out_time = EXCLUDED.ot_out_time,
+          source = EXCLUDED.source,
           updated_at = CURRENT_TIMESTAMP
       `, params);
       const requestedSiteId = Number(req.body.site_id);
@@ -157,6 +159,7 @@ async function ensureAttendanceTable() {
   await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS out_time TIME');
   await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS ot_in_time TIME');
   await query('ALTER TABLE attendance ADD COLUMN IF NOT EXISTS ot_out_time TIME');
+  await query("ALTER TABLE attendance ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'admin'");
 }
 
 function normalizeDate(value: unknown) {

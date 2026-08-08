@@ -471,6 +471,13 @@ export default function Home() {
     }
   };
 
+  const deleteAttendanceSummaryRow = async (row: AttendanceSummaryRow) => {
+    if (!confirm(`Delete ${row.employee_name}'s submitted attendance for ${monthNames[attendanceSummaryMonth - 1]} ${attendanceSummaryYear}?`)) return;
+    const res = await fetch(`/api/reports/attendance-summary?employee_id=${row.employee_id}&month=${attendanceSummaryMonth}&year=${attendanceSummaryYear}`, { method: 'DELETE' });
+    if (!res.ok) return alert('Could not delete this attendance summary.');
+    await fetchAttendanceSummary(attendanceSummaryMonth, attendanceSummaryYear);
+  };
+
   const fetchAttendance = async (date: string) => {
     setAttendanceLoading(true);
     try {
@@ -1154,6 +1161,7 @@ export default function Home() {
 	                    year={attendanceSummaryYear}
 	                    onMonthChange={setAttendanceSummaryMonth}
 	                    onYearChange={setAttendanceSummaryYear}
+	                    onDelete={deleteAttendanceSummaryRow}
 	                  />
 
 	                  <div className="filter-row">
@@ -2419,6 +2427,7 @@ function AttendancePayoutSummary({
   year,
   onMonthChange,
   onYearChange,
+  onDelete,
 }: {
   rows: AttendanceSummaryRow[];
   loading: boolean;
@@ -2426,6 +2435,7 @@ function AttendancePayoutSummary({
   year: number;
   onMonthChange: (month: number) => void;
   onYearChange: (year: number) => void;
+  onDelete: (row: AttendanceSummaryRow) => void;
 }) {
   const currentYear = new Date().getFullYear();
   const years = Array.from(new Set([currentYear, currentYear - 1, year]));
@@ -2463,13 +2473,14 @@ function AttendancePayoutSummary({
               <th>Other ded.</th>
               <th>Total payout</th>
               <th>Payout month</th>
+              <th aria-label="Actions" />
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr className="empty-table-row"><td colSpan={9}>Loading attendance summary...</td></tr>
+              <tr className="empty-table-row"><td colSpan={10}>Loading attendance summary...</td></tr>
             ) : rows.length === 0 ? (
-              <tr className="empty-table-row"><td colSpan={9}>No employee attendance found for this month</td></tr>
+              <tr className="empty-table-row"><td colSpan={10}>No submitted attendance found for this month</td></tr>
             ) : (
               rows.map((row) => (
                 <tr key={row.employee_id}>
@@ -2485,6 +2496,17 @@ function AttendancePayoutSummary({
                     {row.payout_status && <span className={`status-pill ${row.payout_status}`}>{row.payout_status}</span>}
                   </td>
                   <td>{monthNames[month - 1]} {year}</td>
+                  <td>
+                    <button
+                      className="icon-button small danger"
+                      title="Delete submitted attendance"
+                      aria-label={`Delete submitted attendance for ${row.employee_name}`}
+                      type="button"
+                      onClick={() => onDelete(row)}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </td>
                 </tr>
               ))
             )}
