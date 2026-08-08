@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarClock, Check, ChevronLeft, Clock3, Download, Save, UserCheck } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Check, ChevronLeft, ChevronRight, Clock3, Download, Save, UserCheck } from 'lucide-react';
 
 interface RosterEmployee {
   id: number;
@@ -83,9 +83,12 @@ export default function SubmitOt() {
   const [submitted, setSubmitted] = useState(false);
 
   const today = useMemo(() => new Date(), []);
-  const month = today.getMonth() + 1;
-  const year = today.getFullYear();
-  const monthLabel = `${monthNames[month - 1]} ${year}`;
+  const currentMonth = today.getMonth() + 1;
+  const currentYear = today.getFullYear();
+  const [viewMonth, setViewMonth] = useState(currentMonth);
+  const [viewYear, setViewYear] = useState(currentYear);
+  const monthLabel = `${monthNames[viewMonth - 1]} ${viewYear}`;
+  const isOngoingMonth = viewMonth === currentMonth && viewYear === currentYear;
   const selectedEmployee = employees.find((employee) => employee.id.toString() === employeeId) || null;
 
   useEffect(() => {
@@ -96,16 +99,16 @@ export default function SubmitOt() {
       .finally(() => setEmployeesLoading(false));
   }, []);
 
-  const loadTimesheet = async () => {
+  const loadTimesheet = async (targetMonth = viewMonth, targetYear = viewYear) => {
     if (!employeeId) return;
     setError('');
     setLoadingSheet(true);
     try {
-      const res = await fetch(`/api/public/ot?employee_id=${employeeId}&month=${month}&year=${year}`);
+      const res = await fetch(`/api/public/ot?employee_id=${employeeId}&month=${targetMonth}&year=${targetYear}`);
       if (!res.ok) throw new Error('load-failed');
       const data = await res.json();
       const saved = new Map<string, SavedRecord>((data.records || []).map((record: SavedRecord) => [record.date, record]));
-      setRows(buildMonthDays(month, year, saved));
+      setRows(buildMonthDays(targetMonth, targetYear, saved));
       setStep(2);
     } catch {
       setError('Could not load your timesheet. Please try again.');
@@ -114,13 +117,24 @@ export default function SubmitOt() {
     }
   };
 
+  const changeMonth = (delta: number) => {
+    let nextMonth = viewMonth + delta;
+    let nextYear = viewYear;
+    if (nextMonth > 12) { nextMonth = 1; nextYear += 1; }
+    if (nextMonth < 1) { nextMonth = 12; nextYear -= 1; }
+    if (nextYear > currentYear || (nextYear === currentYear && nextMonth > currentMonth)) return;
+    setViewMonth(nextMonth);
+    setViewYear(nextYear);
+    loadTimesheet(nextMonth, nextYear);
+  };
+
   const updateRow = (date: string, updates: Partial<DayRow>) => {
     setRows((current) => current.map((row) => (row.date === date ? { ...row, ...updates } : row)));
   };
 
   const downloadTimesheetPdf = () => {
     const link = document.createElement('a');
-    link.href = `/api/public/ot-pdf?employee_id=${employeeId}&month=${month}&year=${year}`;
+    link.href = `/api/public/ot-pdf?employee_id=${employeeId}&month=${viewMonth}&year=${viewYear}`;
     link.rel = 'noopener';
     document.body.appendChild(link);
     link.click();
@@ -172,7 +186,7 @@ export default function SubmitOt() {
             </label>
           </div>
           {error && <p className="login-error" role="alert">{error}</p>}
-          <button className="dark-button full" type="button" disabled={!employeeId || loadingSheet} onClick={loadTimesheet}>
+          <button className="dark-button full" type="button" disabled={!employeeId || loadingSheet} onClick={() => loadTimesheet()}>
             {loadingSheet ? 'Loading...' : <>Continue <Clock3 size={16} /></>}
           </button>
           <Link className="text-link ot-back-link" href="/login"><ArrowLeft size={14} /> Back to sign in</Link>
@@ -181,7 +195,12 @@ export default function SubmitOt() {
         {step === 2 && <>
           <div className="wizard-head ot-wizard-head">
             <div><h2>{selectedEmployee?.name}</h2><span>{monthLabel} timesheet</span></div>
-            <button className="soft-button compact" type="button" onClick={() => setStep(1)}><ChevronLeft size={14} /> Change employee</button>
+            <button className="soft-button compact" type="button" onClick={() => { setStep(1); setViewMonth(currentMonth); setViewYear(currentYear); }}><ChevronLeft size={14} /> Change employee</button>
+          </div>
+          <div className="ot-month-nav">
+            <button className="icon-button small" type="button" title="Previous month" aria-label="Previous month" disabled={loadingSheet} onClick={() => changeMonth(-1)}><ChevronLeft size={16} /></button>
+            <span>{monthLabel}{!isOngoingMonth && <small> &middot; past month, regularize as needed</small>}</span>
+            <button className="icon-button small" type="button" title="Next month" aria-label="Next month" disabled={loadingSheet || isOngoingMonth} onClick={() => changeMonth(1)}><ChevronRight size={16} /></button>
           </div>
           <p className="ot-hint">Default hours are 7:00 AM to 6:00 PM. Add OT in/out times for any day you worked overtime — OT must fall between 6:00 PM and 11:59 PM the same day. Adjust any day, then submit.</p>
           <div className="table-shell ot-table-shell">
@@ -237,7 +256,7 @@ export default function SubmitOt() {
           <button className="text-link ot-success-download" type="button" onClick={downloadTimesheetPdf}><Download size={15} /> Click here to download PDF</button>
           <div className="action-row">
             <button className="soft-button" type="button" onClick={() => window.location.assign('/login')}>Close</button>
-            <button className="dark-button" type="button" onClick={() => { setSubmitted(false); setStep(1); setEmployeeId(''); setRows([]); }}><Check size={16} /> Submit another</button>
+            <button className="dark-button" type="button" onClick={() => { setSubmitted(false); setStep(1); setEmployeeId(''); setRows([]); setViewMonth(currentMonth); setViewYear(currentYear); }}><Check size={16} /> Submit another</button>
           </div>
         </div>
       </div>

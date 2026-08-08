@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
-import { ArrowLeft, BriefcaseBusiness, CalendarClock, LockKeyhole, MapPin, UsersRound } from 'lucide-react';
+import { ArrowLeft, BriefcaseBusiness, CalendarClock, LockKeyhole, MapPin, UserPlus, UsersRound } from 'lucide-react';
 
 interface LoginSite { id: number; name: string; location?: string; }
 
@@ -35,6 +35,7 @@ export default function Login() {
             <div className="login-links login-links-primary">
               <Link className="soft-button" href="/submit-ot"><CalendarClock size={16} /> Submit Attendance</Link>
               <button className="soft-button" type="button" onClick={() => setManagePeopleOpen(true)}><UsersRound size={16} /> Manage people</button>
+              <Link className="soft-button" href="/onboard-employee"><UserPlus size={16} /> New staff onboarding</Link>
             </div>
           </>
         ) : (

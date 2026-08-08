@@ -2270,6 +2270,9 @@ button:disabled {
 }
 .ot-back-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; }
 .ot-wizard-head { margin-bottom: 4px; }
+.ot-month-nav { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px; }
+.ot-month-nav span { min-width: 0; color: var(--ink); font-size: 0.86rem; font-weight: 600; text-align: center; }
+.ot-month-nav span small { display: block; color: var(--muted); font-size: 0.68rem; font-weight: 500; }
 .ot-hint { margin: 4px 0 12px; color: var(--muted); font-size: 0.78rem; line-height: 1.5; }
 .ot-table-shell { margin-bottom: 14px; min-width: 0; }
 .ot-timesheet-table { min-width: 640px; }

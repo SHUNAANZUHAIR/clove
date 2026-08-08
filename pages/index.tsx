@@ -3073,9 +3073,13 @@ function getCommonEligibleSalaryMonths(employees: Employee[], businessYear: numb
   );
   if (latestStartMonth > monthNames.length) return [];
 
+  const today = new Date();
+  // Never offer a future month that hasn't happened yet.
+  const latestEligibleMonth = businessYear === today.getFullYear() ? today.getMonth() + 1 : monthNames.length;
+
   return monthNames
     .map((_, index) => index + 1)
-    .filter((month) => month >= latestStartMonth);
+    .filter((month) => month >= latestStartMonth && month <= latestEligibleMonth);
 }
 
 function getCompactSalaryMonthWindow(employees: Employee[], businessYear: number) {
@@ -3092,10 +3096,11 @@ function getCompactSalaryMonthWindow(employees: Employee[], businessYear: number
   const joinStartMonth = Math.max(
     ...employees.map((employee) => getSalaryStartMonth(employee.join_date, businessYear))
   );
-  // Always surface the past 2 months alongside the current (and next) month
-  // so a delayed payroll run is never hidden behind "Show more months".
+  // Always surface the past 2 months alongside the current month so a
+  // delayed payroll run is never hidden behind "Show more months" — never
+  // show a future month that hasn't happened yet.
   const startMonth = Math.max(1, currentMonth - 2, joinStartMonth);
-  const endMonth = Math.min(monthNames.length, currentMonth + 1);
+  const endMonth = Math.min(monthNames.length, currentMonth);
 
   return monthNames
     .map((_, index) => index + 1)
