@@ -2241,3 +2241,25 @@ button:disabled {
     height: 32px;
   }
 }
+
+
+.login-links { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.login-links .soft-button { width: 100%; }
+
+.ot-card { width: min(760px, 100%); }
+.ot-back-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; }
+.ot-wizard-head { margin-bottom: 4px; }
+.ot-hint { margin: 4px 0 12px; color: var(--muted); font-size: 0.78rem; line-height: 1.5; }
+.ot-table-shell { margin-bottom: 14px; }
+.ot-timesheet-table { min-width: 640px; }
+.ot-timesheet-table th,
+.ot-timesheet-table td { padding: 6px 8px; white-space: nowrap; }
+.ot-timesheet-table input[type='time'],
+.ot-timesheet-table select { min-height: 32px; padding: 0 6px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--panel); font-size: 0.78rem; }
+.ot-timesheet-table input[type='time']:disabled,
+.ot-timesheet-table select:disabled { color: var(--muted); background: var(--panel-soft); }
+.ot-friday-row { background: var(--panel-soft); }
+
+.attendance-summary-panel { margin-bottom: 4px; }
+.attendance-summary-table { min-width: 900px; }
+.attendance-summary-table .payout-pending { color: var(--muted); }

@@ -89,6 +89,19 @@ interface SalaryTransaction {
   status: string;
 }
 
+interface AttendanceSummaryRow {
+  employee_id: number;
+  employee_name: string;
+  days_worked: number;
+  days_absent: number;
+  work_hours: number;
+  ot_hours: number;
+  less_work_days_deduction: number | null;
+  other_deductions: number | null;
+  total_payout: number | null;
+  payout_status: string | null;
+}
+
 interface SiteTeam {
   id: number;
   site_id: number;
@@ -350,6 +363,10 @@ export default function Home() {
   const [employeeSaveStatus, setEmployeeSaveStatus] = useState('');
   const [salaryForm, setSalaryForm] = useState(freshSalaryForm);
   const [salaryFilter, setSalaryFilter] = useState({ month: 'all', status: 'all' });
+  const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummaryRow[]>([]);
+  const [attendanceSummaryLoading, setAttendanceSummaryLoading] = useState(false);
+  const [attendanceSummaryMonth, setAttendanceSummaryMonth] = useState(new Date().getMonth() + 1);
+  const [attendanceSummaryYear, setAttendanceSummaryYear] = useState(new Date().getFullYear());
   const [salaryJourneyOpen, setSalaryJourneyOpen] = useState(false);
   const [salaryStep, setSalaryStep] = useState(1);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
@@ -374,6 +391,11 @@ export default function Home() {
     fetchAttendance(attendanceDate);
     fetchAttendanceHistory();
   }, [activeTab, attendanceDate]);
+
+  useEffect(() => {
+    if (activeTab !== 'salary' || !isSuperAdmin) return;
+    fetchAttendanceSummary(attendanceSummaryMonth, attendanceSummaryYear);
+  }, [activeTab, isSuperAdmin, attendanceSummaryMonth, attendanceSummaryYear]);
 
   useEffect(() => {
     if (salaryForm.scope !== 'site' || !salaryForm.site_id) {
@@ -432,6 +454,20 @@ export default function Home() {
     if (res.ok) {
       const data = await res.json();
       setSalaryTransactions(data);
+    }
+  };
+
+  const fetchAttendanceSummary = async (month: number, year: number) => {
+    setAttendanceSummaryLoading(true);
+    try {
+      const res = await fetch(`/api/reports/attendance-summary?month=${month}&year=${year}`);
+      if (!res.ok) throw new Error('Could not load attendance summary');
+      setAttendanceSummary(await res.json());
+    } catch (error) {
+      console.error(error);
+      setAttendanceSummary([]);
+    } finally {
+      setAttendanceSummaryLoading(false);
     }
   };
 
@@ -1109,6 +1145,15 @@ export default function Home() {
 	                    onStepChange={setSalaryStep}
 	                    onSubmit={handleSaveSalary}
 	                    onChange={handleSalaryFormChange}
+	                  />
+
+	                  <AttendancePayoutSummary
+	                    rows={attendanceSummary}
+	                    loading={attendanceSummaryLoading}
+	                    month={attendanceSummaryMonth}
+	                    year={attendanceSummaryYear}
+	                    onMonthChange={setAttendanceSummaryMonth}
+	                    onYearChange={setAttendanceSummaryYear}
 	                  />
 
 	                  <div className="filter-row">
@@ -2367,6 +2412,89 @@ function AttendancePanel({
   );
 }
 
+function AttendancePayoutSummary({
+  rows,
+  loading,
+  month,
+  year,
+  onMonthChange,
+  onYearChange,
+}: {
+  rows: AttendanceSummaryRow[];
+  loading: boolean;
+  month: number;
+  year: number;
+  onMonthChange: (month: number) => void;
+  onYearChange: (year: number) => void;
+}) {
+  const currentYear = new Date().getFullYear();
+  const years = Array.from(new Set([currentYear, currentYear - 1, year]));
+
+  return (
+    <section className="attendance-summary-panel" aria-label="Attendance and payout summary">
+      <SectionHeader
+        title="Attendance & payout summary"
+        action={(
+          <span className="section-actions">
+            <label className="filter-control" title="Summary month">
+              <CalendarDays size={14} />
+              <select aria-label="Summary month" value={month} onChange={(event) => onMonthChange(Number(event.target.value))}>
+                {monthNames.map((name, index) => <option key={name} value={index + 1}>{name}</option>)}
+              </select>
+            </label>
+            <label className="filter-control" title="Summary year">
+              <select aria-label="Summary year" value={year} onChange={(event) => onYearChange(Number(event.target.value))}>
+                {years.sort((first, second) => second - first).map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </label>
+          </span>
+        )}
+      />
+      <div className="table-shell">
+        <table className="salary-table attendance-summary-table">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Days worked</th>
+              <th>Days absent</th>
+              <th>Work hours</th>
+              <th>OT hours</th>
+              <th>Less work days ded.</th>
+              <th>Other ded.</th>
+              <th>Total payout</th>
+              <th>Payout month</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr className="empty-table-row"><td colSpan={9}>Loading attendance summary...</td></tr>
+            ) : rows.length === 0 ? (
+              <tr className="empty-table-row"><td colSpan={9}>No employee attendance found for this month</td></tr>
+            ) : (
+              rows.map((row) => (
+                <tr key={row.employee_id}>
+                  <td><strong>{row.employee_name}</strong></td>
+                  <td>{row.days_worked}</td>
+                  <td>{row.days_absent}</td>
+                  <td>{row.work_hours.toFixed(1)}</td>
+                  <td>{row.ot_hours.toFixed(1)}</td>
+                  <td>{row.less_work_days_deduction != null ? formatCurrency(row.less_work_days_deduction) : <span className="payout-pending">—</span>}</td>
+                  <td>{row.other_deductions != null ? formatCurrency(row.other_deductions) : <span className="payout-pending">—</span>}</td>
+                  <td className="net-cell">
+                    {row.total_payout != null ? formatCurrency(row.total_payout) : <span className="payout-pending">Not yet paid</span>}
+                    {row.payout_status && <span className={`status-pill ${row.payout_status}`}>{row.payout_status}</span>}
+                  </td>
+                  <td>{monthNames[month - 1]} {year}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function SalaryJourney({
   employees,
   sites,
@@ -2895,8 +3023,10 @@ function getCompactSalaryMonthWindow(employees: Employee[], businessYear: number
   const joinStartMonth = Math.max(
     ...employees.map((employee) => getSalaryStartMonth(employee.join_date, businessYear))
   );
-  const startMonth = Math.max(1, currentMonth - 1, joinStartMonth);
-  const endMonth = Math.min(monthNames.length, startMonth + 2);
+  // Always surface the past 2 months alongside the current (and next) month
+  // so a delayed payroll run is never hidden behind "Show more months".
+  const startMonth = Math.max(1, currentMonth - 2, joinStartMonth);
+  const endMonth = Math.min(monthNames.length, currentMonth + 1);
 
   return monthNames
     .map((_, index) => index + 1)

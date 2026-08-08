@@ -1,6 +1,7 @@
 import Head from 'next/head';
+import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
-import { BriefcaseBusiness, LockKeyhole, MapPin } from 'lucide-react';
+import { BriefcaseBusiness, CalendarClock, LockKeyhole, MapPin } from 'lucide-react';
 
 interface LoginSite { id: number; name: string; location?: string; }
 
@@ -33,6 +34,9 @@ export default function Login() {
           {error && <p className="login-error" role="alert">{error}</p>}
           <button className="dark-button" type="submit" disabled={submitting || !siteId}>{submitting ? 'Signing in...' : 'Sign in to CloveHR'}</button>
         </form>
+        <div className="login-links">
+          <Link className="soft-button" href="/submit-ot"><CalendarClock size={16} /> Submit Attendance</Link>
+        </div>
       </section>
     </main>
   </>;

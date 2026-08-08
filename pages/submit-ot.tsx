@@ -1,0 +1,217 @@
+import Head from 'next/head';
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, CalendarClock, Check, ChevronLeft, Clock3, Save, UserCheck } from 'lucide-react';
+
+interface RosterEmployee {
+  id: number;
+  name: string;
+}
+
+interface DayRow {
+  date: string;
+  weekday: string;
+  isFriday: boolean;
+  status: 'present' | 'absent' | 'leave' | 'off';
+  in_time: string;
+  out_time: string;
+  ot_in_time: string;
+  ot_out_time: string;
+}
+
+interface SavedRecord {
+  date: string;
+  status: string;
+  in_time: string | null;
+  out_time: string | null;
+  ot_in_time: string | null;
+  ot_out_time: string | null;
+}
+
+const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const defaultInTime = '07:00';
+const defaultOutTime = '18:00';
+const defaultOtInTime = '18:00';
+const defaultOtOutTime = '00:00';
+
+function pad(value: number) {
+  return String(value).padStart(2, '0');
+}
+
+function buildMonthDays(month: number, year: number, saved: Map<string, SavedRecord>): DayRow[] {
+  const lastDay = new Date(year, month, 0).getDate();
+  const rows: DayRow[] = [];
+  for (let day = 1; day <= lastDay; day += 1) {
+    const date = `${year}-${pad(month)}-${pad(day)}`;
+    const weekday = new Date(`${date}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+    const isFriday = weekday === 'Fri';
+    const existing = saved.get(date);
+    rows.push({
+      date,
+      weekday,
+      isFriday,
+      status: isFriday ? 'off' : ((existing?.status as DayRow['status']) || 'present'),
+      in_time: isFriday ? '' : (existing?.in_time || defaultInTime),
+      out_time: isFriday ? '' : (existing?.out_time || defaultOutTime),
+      ot_in_time: isFriday ? '' : (existing?.ot_in_time || defaultOtInTime),
+      ot_out_time: isFriday ? '' : (existing?.ot_out_time || defaultOtOutTime),
+    });
+  }
+  return rows;
+}
+
+export default function SubmitOt() {
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [employees, setEmployees] = useState<RosterEmployee[]>([]);
+  const [employeesLoading, setEmployeesLoading] = useState(true);
+  const [employeeId, setEmployeeId] = useState('');
+  const [rows, setRows] = useState<DayRow[]>([]);
+  const [loadingSheet, setLoadingSheet] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const today = useMemo(() => new Date(), []);
+  const month = today.getMonth() + 1;
+  const year = today.getFullYear();
+  const monthLabel = `${monthNames[month - 1]} ${year}`;
+  const selectedEmployee = employees.find((employee) => employee.id.toString() === employeeId) || null;
+
+  useEffect(() => {
+    fetch('/api/public/employees')
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setEmployees)
+      .catch(() => setEmployees([]))
+      .finally(() => setEmployeesLoading(false));
+  }, []);
+
+  const loadTimesheet = async () => {
+    if (!employeeId) return;
+    setError('');
+    setLoadingSheet(true);
+    try {
+      const res = await fetch(`/api/public/ot?employee_id=${employeeId}&month=${month}&year=${year}`);
+      if (!res.ok) throw new Error('load-failed');
+      const data = await res.json();
+      const saved = new Map<string, SavedRecord>((data.records || []).map((record: SavedRecord) => [record.date, record]));
+      setRows(buildMonthDays(month, year, saved));
+      setStep(2);
+    } catch {
+      setError('Could not load your timesheet. Please try again.');
+    } finally {
+      setLoadingSheet(false);
+    }
+  };
+
+  const updateRow = (date: string, updates: Partial<DayRow>) => {
+    setRows((current) => current.map((row) => (row.date === date ? { ...row, ...updates } : row)));
+  };
+
+  const submitTimesheet = async () => {
+    setError('');
+    setSaving(true);
+    try {
+      const res = await fetch('/api/public/ot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employee_id: Number(employeeId),
+          records: rows.map((row) => ({
+            date: row.date,
+            status: row.status,
+            in_time: row.isFriday || row.status !== 'present' ? null : row.in_time,
+            out_time: row.isFriday || row.status !== 'present' ? null : row.out_time,
+            ot_in_time: row.isFriday || row.status !== 'present' ? null : (row.ot_in_time || null),
+            ot_out_time: row.isFriday || row.status !== 'present' ? null : (row.ot_out_time || null),
+          })),
+        }),
+      });
+      if (!res.ok) throw new Error('save-failed');
+      setStep(3);
+    } catch {
+      setError('Your timesheet could not be submitted. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return <>
+    <Head><title>Submit Attendance | CloveHR</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
+    <main className="login-page ot-page">
+      <section className="login-card ot-card">
+        <div className="login-brand"><span><CalendarClock size={25} /></span><div><p>CLOVE HR</p><h1>Submit Attendance</h1></div></div>
+
+        {step === 1 && <>
+          <p className="login-copy">Select your name to submit your timesheet for {monthLabel}. No login is required.</p>
+          <div className="form-grid compact-grid">
+            <label><span>Your name</span>
+              <select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} disabled={employeesLoading}>
+                <option value="">{employeesLoading ? 'Loading employees...' : 'Select employee'}</option>
+                {employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
+              </select>
+            </label>
+          </div>
+          {error && <p className="login-error" role="alert">{error}</p>}
+          <button className="dark-button full" type="button" disabled={!employeeId || loadingSheet} onClick={loadTimesheet}>
+            {loadingSheet ? 'Loading...' : <>Continue <Clock3 size={16} /></>}
+          </button>
+          <Link className="text-link ot-back-link" href="/login"><ArrowLeft size={14} /> Back to sign in</Link>
+        </>}
+
+        {step === 2 && <>
+          <div className="wizard-head ot-wizard-head">
+            <div><h2>{selectedEmployee?.name}</h2><span>{monthLabel} timesheet</span></div>
+            <button className="soft-button compact" type="button" onClick={() => setStep(1)}><ChevronLeft size={14} /> Change employee</button>
+          </div>
+          <p className="ot-hint">Default hours are 7:00 AM to 6:00 PM, with OT from 6:00 PM to 12:00 AM. Adjust any day, then submit.</p>
+          <div className="table-shell ot-table-shell">
+            <table className="salary-table ot-timesheet-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>In</th>
+                  <th>Out</th>
+                  <th>OT in</th>
+                  <th>OT out</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.date} className={row.isFriday ? 'ot-friday-row' : undefined}>
+                    <td><strong>{Number(row.date.slice(8, 10))}</strong> <small>{row.weekday}</small></td>
+                    <td>
+                      {row.isFriday ? <span className="status-pill off">off</span> : (
+                        <select aria-label={`Status for ${row.date}`} value={row.status} onChange={(event) => updateRow(row.date, { status: event.target.value as DayRow['status'] })}>
+                          <option value="present">Present</option>
+                          <option value="absent">Absent</option>
+                          <option value="leave">Leave</option>
+                        </select>
+                      )}
+                    </td>
+                    <td><input aria-label={`In time for ${row.date}`} type="time" value={row.in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { in_time: event.target.value })} /></td>
+                    <td><input aria-label={`Out time for ${row.date}`} type="time" value={row.out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { out_time: event.target.value })} /></td>
+                    <td><input aria-label={`OT in time for ${row.date}`} type="time" value={row.ot_in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_in_time: event.target.value })} /></td>
+                    <td><input aria-label={`OT out time for ${row.date}`} type="time" value={row.ot_out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_out_time: event.target.value })} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {error && <p className="login-error" role="alert">{error}</p>}
+          <div className="action-row">
+            <button className="soft-button" type="button" onClick={() => setStep(1)}><ChevronLeft size={16} /> Back</button>
+            <button className="dark-button" type="button" disabled={saving} onClick={submitTimesheet}><Save size={16} /> {saving ? 'Submitting...' : 'Submit timesheet'}</button>
+          </div>
+        </>}
+
+        {step === 3 && <div className="wizard-panel attendance-success">
+          <UserCheck size={30} />
+          <h3>Timesheet submitted</h3>
+          <p>{selectedEmployee?.name}'s {monthLabel} timesheet has been recorded and is now available for payroll.</p>
+          <button className="dark-button" type="button" onClick={() => { setStep(1); setEmployeeId(''); setRows([]); }}><Check size={16} /> Submit another</button>
+          <Link className="text-link ot-back-link" href="/login"><ArrowLeft size={14} /> Back to sign in</Link>
+        </div>}
+      </section>
+    </main>
+  </>;
+}

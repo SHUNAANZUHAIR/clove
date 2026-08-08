@@ -23,6 +23,11 @@ export async function middleware(request: NextRequest) {
   if (pathname === '/api/clovehr/openapi' || pathname.startsWith('/api/clovehr/workflow')) {
     return preventSharedCaching(NextResponse.next());
   }
+  // The OT self-service timesheet is reachable without a site login (a kiosk
+  // link from the sign-in screen), so it and its API must stay public.
+  if (pathname === '/submit-ot' || pathname.startsWith('/api/public/')) {
+    return preventSharedCaching(NextResponse.next());
+  }
   if (pathname === '/login') {
     return preventSharedCaching(siteId ? NextResponse.redirect(new URL('/', request.url)) : NextResponse.next());
   }
