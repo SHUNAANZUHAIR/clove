@@ -2,7 +2,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '../../lib/db';
 import { requestSiteId, isSuperAdmin } from '../../lib/request-auth';
-import { ensureSitePasswordSchema, hashSitePassword } from '../../lib/auth';
+import { ensureSitePasswordSchema, hashSitePassword, setSuperAdminPassword, verifySuperAdminPassword } from '../../lib/auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -11,9 +11,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await ensureSitePasswordSchema();
 
     if (req.method === 'POST') {
-      const { scope, site_id, password } = req.body;
+      const { scope, site_id, password, current_password } = req.body;
       const supplied = String(password || '');
       if (supplied.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+
+      if (scope === 'super_admin') {
+        if (!(await verifySuperAdminPassword(current_password))) {
+          return res.status(401).json({ error: 'Current password is incorrect.' });
+        }
+        await setSuperAdminPassword(supplied);
+        return res.status(200).json({ success: true });
+      }
+
       const hash = await hashSitePassword(supplied);
 
       if (scope === 'site') {

@@ -4,9 +4,9 @@ import {
   authCookieName,
   authMaxAge,
   createSession,
-  verifyPassword,
   ensureSitePasswordSchema,
   verifySitePassword,
+  verifySuperAdminPassword,
 } from '../../../lib/auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -17,13 +17,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ error: 'Invalid site login details.' });
   }
 
+  await ensureSitePasswordSchema();
   if (siteId === -1) {
-    // Super admin keeps using the shared CLOVEHR_PASSWORD env var.
-    if (!verifyPassword(req.body?.password)) {
+    // Super admin uses a DB-stored password once set from within the app;
+    // falls back to the shared CLOVEHR_PASSWORD env var until then.
+    if (!(await verifySuperAdminPassword(req.body?.password))) {
       return res.status(401).json({ error: 'Invalid site login details.' });
     }
   } else {
-    await ensureSitePasswordSchema();
     const site = await query('SELECT id, password_hash FROM sites WHERE id = $1', [siteId]);
     if (!site.rowCount) return res.status(401).json({ error: 'Invalid work site.' });
     const siteHash: string | null = site.rows[0].password_hash;

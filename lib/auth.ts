@@ -30,6 +30,25 @@ export function verifyPassword(password: unknown) {
 // change them independently. A site without its own password cannot sign in.
 export async function ensureSitePasswordSchema() {
   await query('ALTER TABLE sites ADD COLUMN IF NOT EXISTS password_hash TEXT');
+  await query('CREATE TABLE IF NOT EXISTS app_settings (key VARCHAR(100) PRIMARY KEY, value TEXT)');
+}
+
+// Super admin's password can be overridden from the DB (set via the app);
+// falls back to the CLOVEHR_PASSWORD env var until an admin sets one.
+export async function verifySuperAdminPassword(password: unknown) {
+  const stored = await query("SELECT value FROM app_settings WHERE key = 'super_admin_password_hash'");
+  const hash: string | undefined = stored.rows[0]?.value;
+  if (hash) return bcrypt.compare(String(password || ''), hash);
+  return verifyPassword(password);
+}
+
+export async function setSuperAdminPassword(password: string) {
+  const hash = await bcrypt.hash(password, 10);
+  await query(
+    `INSERT INTO app_settings (key, value) VALUES ('super_admin_password_hash', $1)
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+    [hash]
+  );
 }
 
 export async function hashSitePassword(password: string) {

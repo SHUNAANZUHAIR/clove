@@ -7,6 +7,8 @@ import { Time24Select } from '../components/Time24Select';
 interface RosterEmployee {
   id: number;
   name: string;
+  site_id: number | null;
+  site_name: string | null;
 }
 
 interface DayRow {
@@ -153,6 +155,18 @@ export default function SubmitOt() {
   const isOngoingMonth = viewMonth === currentMonth && viewYear === currentYear;
   const selectedEmployee = employees.find((employee) => employee.id.toString() === employeeId) || null;
 
+  const employeesBySite = useMemo(() => {
+    const groups = new Map<string, RosterEmployee[]>();
+    employees.forEach((employee) => {
+      const key = employee.site_name || 'Unassigned';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(employee);
+    });
+    return Array.from(groups.entries())
+      .sort(([left], [right]) => (left === 'Unassigned' ? 1 : right === 'Unassigned' ? -1 : left.localeCompare(right)))
+      .map(([siteName, members]) => ({ siteName, members: [...members].sort((a, b) => a.name.localeCompare(b.name)) }));
+  }, [employees]);
+
   useEffect(() => {
     const draft = readDraft();
     if (draft) {
@@ -290,7 +304,11 @@ export default function SubmitOt() {
             <label><span>Your name</span>
               <select value={employeeId} onChange={(event) => setEmployeeId(event.target.value)} disabled={employeesLoading}>
                 <option value="">{employeesLoading ? 'Loading employees...' : 'Select employee'}</option>
-                {employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
+                {employeesBySite.map((group) => (
+                  <optgroup key={group.siteName} label={group.siteName}>
+                    {group.members.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
+                  </optgroup>
+                ))}
               </select>
             </label>
           </div>

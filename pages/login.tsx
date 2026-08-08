@@ -40,7 +40,7 @@ export default function Login() {
           <>
             <p className="login-copy">Submit your attendance, or sign in to manage a work site, the team, or payroll.</p>
             <div className="login-links login-links-primary">
-              <Link className="soft-button" href="/submit-ot"><CalendarClock size={16} /> Submit Attendance</Link>
+              <Link className="soft-button submit-attendance-button" href="/submit-ot"><CalendarClock size={16} /> Submit Attendance</Link>
               <button className="soft-button" type="button" onClick={() => openLoginForm('')}><UsersRound size={16} /> Manage people</button>
               <Link className="soft-button" href="/onboard-employee"><UserPlus size={16} /> New staff onboarding</Link>
               <button className="soft-button" type="button" onClick={() => openLoginForm('salary')}><CircleDollarSign size={16} /> Process Salary</button>

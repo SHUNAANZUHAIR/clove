@@ -384,6 +384,8 @@ export default function Home() {
     return now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
   });
   const [salaryJourneyOpen, setSalaryJourneyOpen] = useState(false);
+  const autoOpenedSalaryJourney = useRef(false);
+  const appliedDefaultTab = useRef(false);
   const [salaryStep, setSalaryStep] = useState(1);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [expandedEmployeeGroups, setExpandedEmployeeGroups] = useState<Record<EmployeeType, boolean>>({
@@ -400,11 +402,23 @@ export default function Home() {
     if (loading) return;
     if (!isSuperAdmin && (activeTab === 'profile' || activeTab === 'salary')) {
       setActiveTab('attendance');
-    } else if (isSuperAdmin && activeTab === 'profile') {
-      // Salary is the default landing tab for super admin.
+    } else if (isSuperAdmin && activeTab === 'profile' && !appliedDefaultTab.current) {
+      // Salary is the default landing tab for super admin — but only once,
+      // on initial load, so manually clicking back to Team afterward sticks.
+      appliedDefaultTab.current = true;
       setActiveTab('salary');
     }
   }, [loading, isSuperAdmin, activeTab]);
+
+  // Arriving via the login screen's "Process Salary" shortcut (?tab=salary)
+  // opens the Give Salary card immediately, not just the Salary tab.
+  useEffect(() => {
+    if (loading || !isSuperAdmin || autoOpenedSalaryJourney.current || typeof window === 'undefined') return;
+    if (new URLSearchParams(window.location.search).get('tab') === 'salary') {
+      autoOpenedSalaryJourney.current = true;
+      startSalaryJourney();
+    }
+  }, [loading, isSuperAdmin]);
 
   useEffect(() => {
     if (activeTab !== 'attendance') return;
@@ -927,6 +941,20 @@ export default function Home() {
     await fetchSites();
   };
 
+  const handleChangeSuperAdminPassword = async () => {
+    const currentPassword = prompt('Enter your current super admin password:');
+    if (!currentPassword) return;
+    const newPassword = prompt('Enter a new super admin password (min 4 characters):');
+    if (!newPassword) return;
+    const res = await fetch('/api/site-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope: 'super_admin', current_password: currentPassword, password: newPassword }),
+    });
+    if (!res.ok) return alert((await res.json().catch(() => null))?.error || 'Could not change the super admin password.');
+    alert('Super admin password updated.');
+  };
+
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
@@ -1012,6 +1040,15 @@ export default function Home() {
               onClick={() => setActiveTab('site')}
             >
               <MapPin size={18} />
+            </button>}
+            {isSuperAdmin && <button
+              className="icon-button"
+              title="Change super admin password"
+              aria-label="Change super admin password"
+              type="button"
+              onClick={handleChangeSuperAdminPassword}
+            >
+              <KeyRound size={18} />
             </button>}
             <button className="icon-button danger" title="Log out" aria-label="Log out" type="button" onClick={handleLogout}>
               <LogOut size={18} />
@@ -2812,7 +2849,7 @@ function SalaryJourney({
 	                      const hasSubmittedAttendance = submittedEmployeeIds.has(employee.id);
 
 	                      return (
-	                        <label key={employee.id} className={`employee-select-option${checked ? ' is-selected' : ''}`}>
+	                        <label key={employee.id} className={`employee-select-option${checked ? (hasSubmittedAttendance ? ' is-selected-attendance' : ' is-selected') : ''}`}>
 	                          <input
 	                            type="checkbox"
 	                            checked={checked}

@@ -1,5 +1,5 @@
 // Public roster for the self-service OT timesheet, and public staff
-// onboarding. GET deliberately returns only id + name (no salary, id
+// onboarding. GET deliberately returns only id + name + site (no salary, id
 // numbers, or other personal data) since this endpoint is reachable
 // without a site login. POST lets anyone with the link onboard a new
 // employee through a simplified form -- the record then only becomes
@@ -14,7 +14,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'GET') {
     try {
       const result = await query(
-        `SELECT id, name FROM employees WHERE COALESCE(is_terminated, FALSE) = FALSE ORDER BY name ASC`
+        `SELECT e.id, e.name, e.site_id, s.name AS site_name
+         FROM employees e
+         LEFT JOIN sites s ON s.id = e.site_id
+         WHERE COALESCE(e.is_terminated, FALSE) = FALSE
+         ORDER BY s.name ASC NULLS LAST, e.name ASC`
       );
       return res.status(200).json(result.rows);
     } catch (error) {

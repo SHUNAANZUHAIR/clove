@@ -1209,6 +1209,11 @@ button:disabled {
   background: var(--primary);
 }
 
+.employee-select-option.is-selected-attendance {
+  border-color: #9bd2b1;
+  background: #eef9f2;
+}
+
 
 .form-grid span {
   color: var(--muted);
@@ -2263,6 +2268,8 @@ button:disabled {
 .login-links { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
 .login-links .soft-button { width: 100%; }
 .login-links-primary { margin-top: 4px; padding-top: 0; border-top: 0; }
+.submit-attendance-button { border-color: #b42318; background: linear-gradient(135deg, #d92d20, #b42318); color: #fff; }
+.submit-attendance-button:hover { border-color: #912018; background: linear-gradient(135deg, #c5271c, #912018); color: #fff; }
 .login-collapse { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; }
 
 .ot-card { width: min(760px, 100%); min-width: 0; }
