@@ -2263,6 +2263,12 @@ button:disabled {
 .ot-friday-row,
 .ot-friday-row td { background: rgba(217, 45, 32, 0.08); }
 
+.ot-success-modal { width: min(420px, 100%); display: grid; justify-items: center; gap: 8px; padding: 28px 24px; border: 1px solid var(--line); border-radius: 18px; background: var(--panel); box-shadow: 0 24px 70px rgba(24, 25, 22, 0.24); text-align: center; }
+.ot-success-modal h3 { margin: 4px 0 0; }
+.ot-success-modal p { margin: 0; color: var(--muted); font-size: 0.86rem; line-height: 1.5; }
+.ot-success-download { margin: 6px 0 4px; font-weight: 600; }
+.ot-success-modal .action-row { width: 100%; margin-top: 6px; }
+
 /* Each day stays a single row (matches the desktop table) even on a phone —
    just tighter and narrower, scrolling horizontally inside the card rather
    than the page, so a day's full attendance line is always one line. */

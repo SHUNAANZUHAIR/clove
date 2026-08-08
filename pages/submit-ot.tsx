@@ -69,7 +69,7 @@ function buildMonthDays(month: number, year: number, saved: Map<string, SavedRec
 }
 
 export default function SubmitOt() {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2>(1);
   const [employees, setEmployees] = useState<RosterEmployee[]>([]);
   const [employeesLoading, setEmployeesLoading] = useState(true);
   const [employeeId, setEmployeeId] = useState('');
@@ -77,6 +77,7 @@ export default function SubmitOt() {
   const [loadingSheet, setLoadingSheet] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [submitted, setSubmitted] = useState(false);
 
   const today = useMemo(() => new Date(), []);
   const month = today.getMonth() + 1;
@@ -143,8 +144,7 @@ export default function SubmitOt() {
         }),
       });
       if (!res.ok) throw new Error('save-failed');
-      downloadTimesheetPdf();
-      setStep(3);
+      setSubmitted(true);
     } catch {
       setError('Your timesheet could not be submitted. Please try again.');
     } finally {
@@ -222,15 +222,22 @@ export default function SubmitOt() {
           </div>
         </>}
 
-        {step === 3 && <div className="wizard-panel attendance-success">
-          <UserCheck size={30} />
-          <h3>Timesheet submitted</h3>
-          <p>{selectedEmployee?.name}'s {monthLabel} timesheet has been recorded and is now available for payroll. A PDF copy has been downloaded.</p>
-          <button className="soft-button" type="button" onClick={downloadTimesheetPdf}><Download size={16} /> Download PDF again</button>
-          <button className="dark-button" type="button" onClick={() => { setStep(1); setEmployeeId(''); setRows([]); }}><Check size={16} /> Submit another</button>
-          <Link className="text-link ot-back-link" href="/login"><ArrowLeft size={14} /> Back to sign in</Link>
-        </div>}
       </section>
     </main>
+
+    {submitted && (
+      <div className="quick-view-backdrop" role="dialog" aria-modal="true" aria-label="Attendance submitted">
+        <div className="ot-success-modal">
+          <UserCheck size={30} />
+          <h3>Attendance is submitted</h3>
+          <p>{selectedEmployee?.name}'s {monthLabel} timesheet has been recorded and is now available for payroll.</p>
+          <button className="text-link ot-success-download" type="button" onClick={downloadTimesheetPdf}><Download size={15} /> Click here to download PDF</button>
+          <div className="action-row">
+            <button className="soft-button" type="button" onClick={() => setSubmitted(false)}>Close</button>
+            <button className="dark-button" type="button" onClick={() => { setSubmitted(false); setStep(1); setEmployeeId(''); setRows([]); }}><Check size={16} /> Submit another</button>
+          </div>
+        </div>
+      </div>
+    )}
   </>;
 }
