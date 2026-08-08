@@ -378,8 +378,11 @@ export default function Home() {
   const [salaryFilter, setSalaryFilter] = useState({ month: 'all', status: 'all' });
   const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummaryRow[]>([]);
   const [attendanceSummaryLoading, setAttendanceSummaryLoading] = useState(false);
-  const [attendanceSummaryMonth, setAttendanceSummaryMonth] = useState(new Date().getMonth() + 1);
-  const [attendanceSummaryYear, setAttendanceSummaryYear] = useState(new Date().getFullYear());
+  const [attendanceSummaryMonth, setAttendanceSummaryMonth] = useState(getLastCompletedMonth());
+  const [attendanceSummaryYear, setAttendanceSummaryYear] = useState(() => {
+    const now = new Date();
+    return now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+  });
   const [salaryJourneyOpen, setSalaryJourneyOpen] = useState(false);
   const [salaryStep, setSalaryStep] = useState(1);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
@@ -394,8 +397,12 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!loading && !isSuperAdmin && (activeTab === 'profile' || activeTab === 'salary')) {
+    if (loading) return;
+    if (!isSuperAdmin && (activeTab === 'profile' || activeTab === 'salary')) {
       setActiveTab('attendance');
+    } else if (isSuperAdmin && activeTab === 'profile') {
+      // Salary is the default landing tab for super admin.
+      setActiveTab('salary');
     }
   }, [loading, isSuperAdmin, activeTab]);
 
@@ -872,6 +879,13 @@ export default function Home() {
     setSalaryJourneyOpen(true);
   };
 
+  const startSalaryJourneyForEmployee = (employeeId: number) => {
+    const next = { ...freshSalaryForm(), scope: 'employee' as SalaryScope, employee_id: String(employeeId), employee_ids: [String(employeeId)] };
+    setSalaryForm(withSalaryCalculations(next, getSalaryTargets(next, employees, salarySiteMemberIds)));
+    setSalaryStep(3);
+    setSalaryJourneyOpen(true);
+  };
+
   const closeSalaryJourney = () => {
     setSalaryJourneyOpen(false);
     setSalaryStep(1);
@@ -1180,6 +1194,7 @@ export default function Home() {
 	                    onMonthChange={setAttendanceSummaryMonth}
 	                    onYearChange={setAttendanceSummaryYear}
 	                    onDelete={deleteAttendanceSummaryRow}
+	                    onGiveSalary={startSalaryJourneyForEmployee}
 	                  />
 
 	                  <div className="filter-row">
@@ -2445,6 +2460,7 @@ function AttendancePayoutSummary({
   onMonthChange,
   onYearChange,
   onDelete,
+  onGiveSalary,
 }: {
   rows: AttendanceSummaryRow[];
   loading: boolean;
@@ -2453,14 +2469,18 @@ function AttendancePayoutSummary({
   onMonthChange: (month: number) => void;
   onYearChange: (year: number) => void;
   onDelete: (row: AttendanceSummaryRow) => void;
+  onGiveSalary: (employeeId: number) => void;
 }) {
   const currentYear = new Date().getFullYear();
   const years = Array.from(new Set([currentYear, currentYear - 1, year]));
+  // Only employees still awaiting payout — once paid, there's nothing left
+  // to action here (they remain visible in the Payroll table below).
+  const pendingRows = rows.filter((row) => row.payout_status !== 'paid');
 
   return (
-    <section className="attendance-summary-panel" aria-label="Attendance and payout summary">
+    <section className="attendance-summary-panel" aria-label="Attendance completed employees">
       <SectionHeader
-        title="Attendance & payout summary"
+        title="Attendance Completed Employees"
         action={(
           <span className="section-actions">
             <label className="filter-control" title="Summary month">
@@ -2496,10 +2516,10 @@ function AttendancePayoutSummary({
           <tbody>
             {loading ? (
               <tr className="empty-table-row"><td colSpan={10}>Loading attendance summary...</td></tr>
-            ) : rows.length === 0 ? (
-              <tr className="empty-table-row"><td colSpan={10}>No submitted attendance found for this month</td></tr>
+            ) : pendingRows.length === 0 ? (
+              <tr className="empty-table-row"><td colSpan={10}>No employees with regularized attendance are pending salary for this month</td></tr>
             ) : (
-              rows.map((row) => (
+              pendingRows.map((row) => (
                 <tr key={row.employee_id}>
                   <td><strong>{row.employee_name}</strong></td>
                   <td>{row.days_worked}</td>
@@ -2514,15 +2534,26 @@ function AttendancePayoutSummary({
                   </td>
                   <td>{monthNames[month - 1]} {year}</td>
                   <td>
-                    <button
-                      className="icon-button small danger"
-                      title="Delete submitted attendance"
-                      aria-label={`Delete submitted attendance for ${row.employee_name}`}
-                      type="button"
-                      onClick={() => onDelete(row)}
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <div className="row-actions">
+                      <button
+                        className="icon-button small"
+                        title="Give salary"
+                        aria-label={`Give salary to ${row.employee_name}`}
+                        type="button"
+                        onClick={() => onGiveSalary(row.employee_id)}
+                      >
+                        <CreditCard size={15} />
+                      </button>
+                      <button
+                        className="icon-button small danger"
+                        title="Delete submitted attendance"
+                        aria-label={`Delete submitted attendance for ${row.employee_name}`}
+                        type="button"
+                        onClick={() => onDelete(row)}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
