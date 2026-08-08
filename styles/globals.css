@@ -1238,6 +1238,14 @@ button:disabled {
 }
 
 
+.employee-option-submitted {
+  color: var(--success);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .employee-select-option .employee-option-level {
   color: var(--muted);
   font-size: 0.66rem;
@@ -1438,6 +1446,7 @@ button:disabled {
 
 .table-shell {
   max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -2293,6 +2302,6 @@ button:disabled {
   .ot-wizard-head button { flex: 0 0 auto; }
 }
 
-.attendance-summary-panel { margin-bottom: 4px; }
+.attendance-summary-panel { min-width: 0; margin-bottom: 4px; }
 .attendance-summary-table { min-width: 900px; }
 .attendance-summary-table .payout-pending { color: var(--muted); }

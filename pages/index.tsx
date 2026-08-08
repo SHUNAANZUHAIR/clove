@@ -942,6 +942,10 @@ export default function Home() {
   ), [salaryTransactions, salaryFilter.month, salaryFilter.status]);
 
   const salaryTargets = getSalaryTargets(salaryForm, employees, salarySiteMemberIds);
+  const submittedAttendanceEmployeeIds = useMemo(
+    () => new Set(attendanceSummary.map((row) => row.employee_id)),
+    [attendanceSummary]
+  );
 
   const loggedSiteName = !isSuperAdmin && sites.length === 1 ? sites[0].name : '';
   const title = activeTab === 'profile' ? `Welcome, ${isSuperAdmin ? 'Super Admin' : loggedSiteName || 'Clove'}` : activeTab === 'salary' ? 'Payroll' : activeTab === 'attendance' ? 'Attendance' : 'Work Sites';
@@ -1147,6 +1151,7 @@ export default function Home() {
 	                    form={salaryForm}
 	                    isOpen={salaryJourneyOpen}
 	                    step={salaryStep}
+	                    submittedEmployeeIds={submittedAttendanceEmployeeIds}
 	                    onStart={startSalaryJourney}
 	                    onClose={closeSalaryJourney}
 	                    onStepChange={setSalaryStep}
@@ -2525,6 +2530,7 @@ function SalaryJourney({
   form,
   isOpen,
   step,
+  submittedEmployeeIds,
   onStart,
   onClose,
   onStepChange,
@@ -2538,6 +2544,7 @@ function SalaryJourney({
   form: ReturnType<typeof freshSalaryForm>;
   isOpen: boolean;
   step: number;
+  submittedEmployeeIds: Set<number>;
   onStart: () => void;
   onClose: () => void;
   onStepChange: (step: number) => void;
@@ -2546,6 +2553,13 @@ function SalaryJourney({
 }) {
 	  const [showAllSalaryMonths, setShowAllSalaryMonths] = useState(false);
 	  const selectedEmployeeIds = getSalaryEmployeeIds(form);
+	  const prioritizedEmployees = useMemo(() => (
+	    [...employees].sort((first, second) => {
+	      const firstSubmitted = submittedEmployeeIds.has(first.id) ? 0 : 1;
+	      const secondSubmitted = submittedEmployeeIds.has(second.id) ? 0 : 1;
+	      return firstSubmitted !== secondSubmitted ? firstSubmitted - secondSubmitted : first.name.localeCompare(second.name);
+	    })
+	  ), [employees, submittedEmployeeIds]);
 	  const selectedEmployees = form.scope === 'site'
 	    ? targetEmployees
 	    : employees.filter((employee) => selectedEmployeeIds.includes(employee.id));
@@ -2702,8 +2716,9 @@ function SalaryJourney({
 	                <div className="employee-multi-field wide">
 	                  <span>Employee</span>
 	                  <div className="employee-multi-list">
-	                    {employees.map((employee) => {
+	                    {prioritizedEmployees.map((employee) => {
 	                      const checked = selectedEmployeeIds.includes(employee.id);
+	                      const hasSubmittedAttendance = submittedEmployeeIds.has(employee.id);
 
 	                      return (
 	                        <label key={employee.id} className={`employee-select-option${checked ? ' is-selected' : ''}`}>
@@ -2713,6 +2728,7 @@ function SalaryJourney({
 	                            onChange={(event) => handleEmployeeToggle(employee.id, event.target.checked)}
 	                          />
 		                          <span className="employee-option-name">{employee.name}</span>
+		                          {hasSubmittedAttendance && <small className="employee-option-submitted">Attendance submitted</small>}
 		                          <small className="employee-option-level">{jobLevelLabel(employee.job_level)}</small>
 	                        </label>
 	                      );
