@@ -195,7 +195,7 @@ export default function SubmitOt() {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.date} className={row.isFriday ? 'ot-friday-row' : undefined}>
+                  <tr key={row.date} className={row.isFriday || row.status === 'absent' ? 'ot-alert-row' : undefined}>
                     <td className="ot-row-date"><strong>{Number(row.date.slice(8, 10))}</strong> <small>{row.weekday}</small></td>
                     <td>
                       {row.isFriday ? <span className="status-pill off">off</span> : (

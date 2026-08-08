@@ -2270,8 +2270,8 @@ button:disabled {
 .ot-timesheet-table select { min-height: 32px; padding: 0 6px; border: 1px solid var(--line-strong); border-radius: 7px; background: var(--panel); font-size: 0.78rem; }
 .ot-timesheet-table input[type='time']:disabled,
 .ot-timesheet-table select:disabled { color: var(--muted); background: var(--panel-soft); }
-.ot-friday-row,
-.ot-friday-row td { background: rgba(217, 45, 32, 0.08); }
+.ot-alert-row,
+.ot-alert-row td { background: rgba(217, 45, 32, 0.08); }
 
 .ot-success-modal { width: min(420px, 100%); display: grid; justify-items: center; gap: 8px; padding: 28px 24px; border: 1px solid var(--line); border-radius: 18px; background: var(--panel); box-shadow: 0 24px 70px rgba(24, 25, 22, 0.24); text-align: center; }
 .ot-success-modal h3 { margin: 4px 0 0; }
