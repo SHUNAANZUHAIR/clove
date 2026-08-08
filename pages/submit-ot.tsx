@@ -142,6 +142,8 @@ export default function SubmitOt() {
   const [rows, setRows] = useState<DayRow[]>([]);
   const [loadingSheet, setLoadingSheet] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -250,6 +252,7 @@ export default function SubmitOt() {
   };
 
   const updateRow = (date: string, updates: Partial<DayRow>) => {
+    setSaveMessage('');
     setRows((current) => current.map((row) => (row.date === date ? { ...row, ...updates } : row)));
   };
 
@@ -262,6 +265,40 @@ export default function SubmitOt() {
     link.remove();
   };
 
+  const buildOtPayload = () => ({
+    employee_id: Number(employeeId),
+    records: rows.map((row) => ({
+      date: row.date,
+      status: row.status,
+      in_time: row.isFriday || row.status !== 'present' ? null : row.in_time,
+      out_time: row.isFriday || row.status !== 'present' ? null : row.out_time,
+      ot_in_time: row.isFriday || row.status !== 'present' ? null : (row.ot_in_time || null),
+      ot_out_time: row.isFriday || row.status !== 'present' ? null : (row.ot_out_time || null),
+    })),
+  });
+
+  // Saves the same rows to the database as a normal submission, but stays on
+  // the sheet instead of showing the completion modal — lets an employee
+  // bank progress on a long timesheet without finalizing it yet.
+  const saveProgress = async () => {
+    setError('');
+    setSaveMessage('');
+    setSavingDraft(true);
+    try {
+      const res = await fetch('/api/public/ot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildOtPayload()),
+      });
+      if (!res.ok) throw new Error('save-failed');
+      setSaveMessage('Saved.');
+    } catch {
+      setError('Your progress could not be saved. Please try again.');
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
   const submitTimesheet = async () => {
     setError('');
     setSaving(true);
@@ -269,17 +306,7 @@ export default function SubmitOt() {
       const res = await fetch('/api/public/ot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          employee_id: Number(employeeId),
-          records: rows.map((row) => ({
-            date: row.date,
-            status: row.status,
-            in_time: row.isFriday || row.status !== 'present' ? null : row.in_time,
-            out_time: row.isFriday || row.status !== 'present' ? null : row.out_time,
-            ot_in_time: row.isFriday || row.status !== 'present' ? null : (row.ot_in_time || null),
-            ot_out_time: row.isFriday || row.status !== 'present' ? null : (row.ot_out_time || null),
-          })),
-        }),
+        body: JSON.stringify(buildOtPayload()),
       });
       if (!res.ok) throw new Error('save-failed');
       clearDraft();
@@ -365,9 +392,13 @@ export default function SubmitOt() {
             </table>
           </div>
           {error && <p className="login-error" role="alert">{error}</p>}
+          {saveMessage && <p className="ot-save-message" role="status">{saveMessage}</p>}
+          <button className="soft-button full" type="button" disabled={saving || savingDraft} onClick={saveProgress}>
+            <Save size={16} /> {savingDraft ? 'Saving...' : 'Save progress'}
+          </button>
           <div className="action-row">
             <button className="soft-button" type="button" onClick={() => setStep(1)}><ChevronLeft size={16} /> Back</button>
-            <button className="dark-button" type="button" disabled={saving} onClick={submitTimesheet}><Save size={16} /> {saving ? 'Submitting...' : 'Submit timesheet'}</button>
+            <button className="dark-button" type="button" disabled={saving || savingDraft} onClick={submitTimesheet}><Save size={16} /> {saving ? 'Submitting...' : 'Submit timesheet'}</button>
           </div>
         </>}
 

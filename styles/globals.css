@@ -379,7 +379,8 @@ button:disabled {
 }
 
 
-.dark-button.full {
+.dark-button.full,
+.soft-button.full {
   width: 100%;
 }
 
@@ -2294,6 +2295,7 @@ button:disabled {
 .ot-month-badge.is-past { background: #fbf1de; border-color: #e9cd93; color: var(--warning); }
 .ot-month-badge.is-past small { color: var(--warning); opacity: 0.8; }
 .ot-hint { margin: 4px 0 12px; color: var(--muted); font-size: 0.78rem; line-height: 1.5; }
+.ot-save-message { margin: 0 0 8px; color: var(--success); font-size: 0.78rem; font-weight: 600; text-align: center; }
 .ot-table-shell { margin-bottom: 14px; min-width: 0; }
 .ot-timesheet-table { min-width: 640px; }
 .ot-timesheet-table th,
