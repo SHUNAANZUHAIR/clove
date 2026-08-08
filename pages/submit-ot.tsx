@@ -2,6 +2,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarClock, Check, ChevronLeft, ChevronRight, Clock3, Download, Save, UserCheck } from 'lucide-react';
+import { Time24Select } from '../components/Time24Select';
 
 interface RosterEmployee {
   id: number;
@@ -336,10 +337,10 @@ export default function SubmitOt() {
                         </select>
                       )}
                     </td>
-                    <td><input aria-label={`In time for ${row.date}`} type="time" lang="en-GB" value={row.in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { in_time: event.target.value })} /></td>
-                    <td><input aria-label={`Out time for ${row.date}`} type="time" lang="en-GB" value={row.out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { out_time: event.target.value })} /></td>
-                    <td><input aria-label={`OT in time for ${row.date}`} type="time" lang="en-GB" min={otWindowStart} max={otWindowEnd} value={row.ot_in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_in_time: clampOtTime(event.target.value) })} /></td>
-                    <td><input aria-label={`OT out time for ${row.date}`} type="time" lang="en-GB" min={otWindowStart} max={otWindowEnd} value={row.ot_out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_out_time: clampOtTime(event.target.value) })} /></td>
+                    <td><Time24Select ariaLabel={`In time for ${row.date}`} value={row.in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(value) => updateRow(row.date, { in_time: value })} /></td>
+                    <td><Time24Select ariaLabel={`Out time for ${row.date}`} value={row.out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(value) => updateRow(row.date, { out_time: value })} /></td>
+                    <td><Time24Select ariaLabel={`OT in time for ${row.date}`} min={otWindowStart} max={otWindowEnd} value={row.ot_in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(value) => updateRow(row.date, { ot_in_time: clampOtTime(value) })} /></td>
+                    <td><Time24Select ariaLabel={`OT out time for ${row.date}`} min={otWindowStart} max={otWindowEnd} value={row.ot_out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(value) => updateRow(row.date, { ot_out_time: clampOtTime(value) })} /></td>
                   </tr>
                 ))}
               </tbody>

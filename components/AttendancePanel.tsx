@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { Time24Select } from './Time24Select';
 import {
   Check,
   ChevronLeft,
@@ -241,19 +242,19 @@ export function AttendancePanel({
               <div className="form-grid compact-grid attendance-time-grid">
                 <label>
                   <span>In time</span>
-                  <input aria-label="Attendance in time" type="time" lang="en-GB" value={journeyInTime} onChange={(event) => setJourneyInTime(event.target.value)} />
+                  <Time24Select ariaLabel="Attendance in time" value={journeyInTime} onChange={setJourneyInTime} />
                 </label>
                 <label>
                   <span>Out time</span>
-                  <input aria-label="Attendance out time" type="time" lang="en-GB" value={journeyOutTime} onChange={(event) => setJourneyOutTime(event.target.value)} />
+                  <Time24Select ariaLabel="Attendance out time" value={journeyOutTime} onChange={setJourneyOutTime} />
                 </label>
                 <label>
                   <span>OT in time</span>
-                  <input aria-label="Overtime in time" type="time" lang="en-GB" value={journeyOtInTime} onChange={(event) => setJourneyOtInTime(event.target.value)} />
+                  <Time24Select ariaLabel="Overtime in time" value={journeyOtInTime} onChange={setJourneyOtInTime} />
                 </label>
                 <label>
                   <span>OT out time</span>
-                  <input aria-label="Overtime out time" type="time" lang="en-GB" value={journeyOtOutTime} onChange={(event) => setJourneyOtOutTime(event.target.value)} />
+                  <Time24Select ariaLabel="Overtime out time" value={journeyOtOutTime} onChange={setJourneyOtOutTime} />
                 </label>
               </div>
             )}

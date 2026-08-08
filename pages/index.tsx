@@ -27,6 +27,7 @@ import {
   UsersRound,
   X,
 } from 'lucide-react';
+import { Time24Select } from '../components/Time24Select';
 
 interface Employee {
   id: number;
@@ -323,12 +324,19 @@ function employeeToProfileForm(employee: Employee, duplicate = false): typeof em
   };
 }
 
+// Payroll always runs for the last completed month — never the current one.
+const getLastCompletedMonth = () => {
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  return currentMonth === 1 ? 12 : currentMonth - 1;
+};
+
 const freshSalaryForm = () => ({
   scope: 'employee' as SalaryScope,
   employee_id: '',
   employee_ids: [] as string[],
   site_id: '',
-  month: new Date().getMonth() + 1,
+  month: getLastCompletedMonth(),
   year: getBusinessYear(),
   worked_days: salaryPeriodDays,
   daily_rate: 0,
@@ -2173,16 +2181,16 @@ function AttendancePanel({
           {journeyStep === 3 && <div className="wizard-panel">
             {isFridayDate(date) ? <p className="friday-attendance-note">Friday is an off day. No in or out time will be recorded.</p> : <>
               <div className="form-grid compact-grid attendance-time-grid">
-                <label><span>In time</span><input aria-label="Attendance in time" type="time" lang="en-GB" value={journeyInTime} onChange={(event) => setJourneyInTime(event.target.value)} /></label>
-                <label><span>Out time</span><input aria-label="Attendance out time" type="time" lang="en-GB" value={journeyOutTime} onChange={(event) => setJourneyOutTime(event.target.value)} /></label>
+                <label><span>In time</span><Time24Select ariaLabel="Attendance in time" value={journeyInTime} onChange={setJourneyInTime} /></label>
+                <label><span>Out time</span><Time24Select ariaLabel="Attendance out time" value={journeyOutTime} onChange={setJourneyOutTime} /></label>
               </div>
               <label className="attendance-ot-toggle"><input type="checkbox" checked={journeyOtEnabled} onChange={(event) => {
                 setJourneyOtEnabled(event.target.checked);
                 if (!event.target.checked) { setJourneyOtInTime(''); setJourneyOtOutTime(''); }
               }} /><span>Enable OT</span></label>
               {journeyOtEnabled && <div className="form-grid compact-grid attendance-time-grid attendance-ot-fields">
-                <label><span>OT in time</span><input aria-label="Overtime in time" type="time" lang="en-GB" value={journeyOtInTime} onChange={(event) => setJourneyOtInTime(event.target.value)} /></label>
-                <label><span>OT out time</span><input aria-label="Overtime out time" type="time" lang="en-GB" value={journeyOtOutTime} onChange={(event) => setJourneyOtOutTime(event.target.value)} /></label>
+                <label><span>OT in time</span><Time24Select ariaLabel="Overtime in time" value={journeyOtInTime} onChange={setJourneyOtInTime} /></label>
+                <label><span>OT out time</span><Time24Select ariaLabel="Overtime out time" value={journeyOtOutTime} onChange={setJourneyOtOutTime} /></label>
               </div>}
             </>}
             <div className="attendance-confirm-list">
@@ -2347,38 +2355,34 @@ function AttendancePanel({
                   </select>
                 </td>
                 <td>
-                  <input
-                    aria-label={`In time for ${record.employee_name}`}
-                    type="time" lang="en-GB"
+                  <Time24Select
+                    ariaLabel={`In time for ${record.employee_name}`}
                     value={record.in_time || ''}
-                    onChange={(event) => updateRecord(record.employee_id, { in_time: event.target.value || null })}
+                    onChange={(value) => updateRecord(record.employee_id, { in_time: value || null })}
                     disabled={friday}
                   />
                 </td>
                 <td>
-                  <input
-                    aria-label={`Out time for ${record.employee_name}`}
-                    type="time" lang="en-GB"
+                  <Time24Select
+                    ariaLabel={`Out time for ${record.employee_name}`}
                     value={record.out_time || ''}
-                    onChange={(event) => updateRecord(record.employee_id, { out_time: event.target.value || null })}
+                    onChange={(value) => updateRecord(record.employee_id, { out_time: value || null })}
                     disabled={friday}
                   />
                 </td>
                 <td>
-                  <input
-                    aria-label={`OT in time for ${record.employee_name}`}
-                    type="time" lang="en-GB"
+                  <Time24Select
+                    ariaLabel={`OT in time for ${record.employee_name}`}
                     value={record.ot_in_time || ''}
-                    onChange={(event) => updateRecord(record.employee_id, { ot_in_time: event.target.value || null })}
+                    onChange={(value) => updateRecord(record.employee_id, { ot_in_time: value || null })}
                     disabled={friday}
                   />
                 </td>
                 <td>
-                  <input
-                    aria-label={`OT out time for ${record.employee_name}`}
-                    type="time" lang="en-GB"
+                  <Time24Select
+                    ariaLabel={`OT out time for ${record.employee_name}`}
                     value={record.ot_out_time || ''}
-                    onChange={(event) => updateRecord(record.employee_id, { ot_out_time: event.target.value || null })}
+                    onChange={(value) => updateRecord(record.employee_id, { ot_out_time: value || null })}
                     disabled={friday}
                   />
                 </td>
@@ -2793,6 +2797,9 @@ function SalaryJourney({
 	                </div>
 	                )}
 	              </div>
+	              {hasTarget && !hasEligibleMonth && (
+	                <p className="login-error" role="alert">No payroll month is available for the selected employee(s) yet — they joined after the last completed month. Salary can only be given once that period has passed.</p>
+	              )}
 	            </div>
           )}
 
@@ -2849,6 +2856,9 @@ function SalaryJourney({
 	                  </div>
 	                </div>
               </div>
+              {hasTarget && selectedMonthEligible && selectedMonthPaid && (
+                <p className="login-error" role="alert">Salary for {monthNames[form.month - 1]} {businessYear} has already been paid for the selected employee(s) — there is nothing left to process.</p>
+              )}
             </div>
           )}
 

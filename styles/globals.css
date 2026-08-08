@@ -769,7 +769,8 @@ button:disabled {
 .attendance-confirm-list label small { color: var(--muted); font-size: 0.68rem; }
 .attendance-time-grid,
 .attendance-time-grid label { width: 100%; min-width: 0; max-width: 100%; overflow: hidden; }
-.attendance-time-grid input[type="time"] {
+.attendance-time-grid input[type="time"],
+.attendance-time-grid select {
   display: block;
   width: 100% !important;
   min-width: 0 !important;
@@ -2163,7 +2164,8 @@ button:disabled {
   .attendance-journey,
   .attendance-journey .wizard-panel { width: 100%; min-width: 0; max-width: 100%; overflow: hidden; }
   .attendance-time-grid { width: 100%; grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  .attendance-time-grid input[type="time"] { min-height: 48px; padding: 10px 8px; font-size: 16px; }
+  .attendance-time-grid input[type="time"],
+  .attendance-time-grid select { min-height: 48px; padding: 10px 8px; font-size: 16px; }
   .attendance-journey .action-row { flex-wrap: wrap; }
   .attendance-journey .action-row > button { min-height: 44px; flex: 1 1 140px; }
 
