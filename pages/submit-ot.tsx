@@ -197,7 +197,7 @@ export default function SubmitOt() {
                 {rows.map((row) => (
                   <tr key={row.date} className={row.isFriday ? 'ot-friday-row' : undefined}>
                     <td className="ot-row-date"><strong>{Number(row.date.slice(8, 10))}</strong> <small>{row.weekday}</small></td>
-                    <td data-label="Status">
+                    <td>
                       {row.isFriday ? <span className="status-pill off">off</span> : (
                         <select aria-label={`Status for ${row.date}`} value={row.status} onChange={(event) => updateRow(row.date, { status: event.target.value as DayRow['status'] })}>
                           <option value="present">Present</option>
@@ -206,10 +206,10 @@ export default function SubmitOt() {
                         </select>
                       )}
                     </td>
-                    <td data-label="In"><input aria-label={`In time for ${row.date}`} type="time" value={row.in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { in_time: event.target.value })} /></td>
-                    <td data-label="Out"><input aria-label={`Out time for ${row.date}`} type="time" value={row.out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { out_time: event.target.value })} /></td>
-                    <td data-label="OT in"><input aria-label={`OT in time for ${row.date}`} type="time" min={otWindowStart} max={otWindowEnd} value={row.ot_in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_in_time: clampOtTime(event.target.value) })} /></td>
-                    <td data-label="OT out"><input aria-label={`OT out time for ${row.date}`} type="time" min={otWindowStart} max={otWindowEnd} value={row.ot_out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_out_time: clampOtTime(event.target.value) })} /></td>
+                    <td><input aria-label={`In time for ${row.date}`} type="time" value={row.in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { in_time: event.target.value })} /></td>
+                    <td><input aria-label={`Out time for ${row.date}`} type="time" value={row.out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { out_time: event.target.value })} /></td>
+                    <td><input aria-label={`OT in time for ${row.date}`} type="time" min={otWindowStart} max={otWindowEnd} value={row.ot_in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_in_time: clampOtTime(event.target.value) })} /></td>
+                    <td><input aria-label={`OT out time for ${row.date}`} type="time" min={otWindowStart} max={otWindowEnd} value={row.ot_out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_out_time: clampOtTime(event.target.value) })} /></td>
                   </tr>
                 ))}
               </tbody>
