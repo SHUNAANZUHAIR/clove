@@ -58,8 +58,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           String(record?.notes || '').slice(0, 500),
           friday ? null : normalizeTime(record?.in_time),
           friday ? null : normalizeTime(record?.out_time),
-          friday ? null : normalizeTime(record?.ot_in_time),
-          friday ? null : normalizeTime(record?.ot_out_time),
+          friday ? null : normalizeOtTime(record?.ot_in_time),
+          friday ? null : normalizeOtTime(record?.ot_out_time),
         ]);
       }
       if (rows.length === 0) return res.status(400).json({ error: 'No valid timesheet rows supplied.' });
@@ -131,6 +131,17 @@ function normalizeDate(value: unknown) {
 
 function normalizeTime(value: unknown) {
   return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : null;
+}
+
+// OT must fall same-day, between 6:00 PM and 11:59 PM — it never rolls into
+// the next calendar day, so out-of-window values are clamped into range
+// rather than trusted as-is from this unauthenticated endpoint.
+function normalizeOtTime(value: unknown) {
+  const time = normalizeTime(value);
+  if (!time) return null;
+  if (time < '18:00') return '18:00';
+  if (time > '23:59') return '23:59';
+  return time;
 }
 
 function isFridayDate(value: string) {

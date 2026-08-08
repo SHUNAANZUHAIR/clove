@@ -36,8 +36,14 @@ function pad(value: number) {
   return String(value).padStart(2, '0');
 }
 
-function clampOtInTime(value: string) {
-  return value && value < '18:00' ? '18:00' : value;
+const otWindowStart = '18:00';
+const otWindowEnd = '23:59';
+
+function clampOtTime(value: string) {
+  if (!value) return value;
+  if (value < otWindowStart) return otWindowStart;
+  if (value > otWindowEnd) return otWindowEnd;
+  return value;
 }
 
 function buildMonthDays(month: number, year: number, saved: Map<string, SavedRecord>): DayRow[] {
@@ -55,8 +61,8 @@ function buildMonthDays(month: number, year: number, saved: Map<string, SavedRec
       status: isFriday ? 'off' : ((existing?.status as DayRow['status']) || 'present'),
       in_time: isFriday ? '' : (existing?.in_time || defaultInTime),
       out_time: isFriday ? '' : (existing?.out_time || defaultOutTime),
-      ot_in_time: isFriday ? '' : (existing?.ot_in_time || ''),
-      ot_out_time: isFriday ? '' : (existing?.ot_out_time || ''),
+      ot_in_time: isFriday ? '' : clampOtTime(existing?.ot_in_time || ''),
+      ot_out_time: isFriday ? '' : clampOtTime(existing?.ot_out_time || ''),
     });
   }
   return rows;
@@ -174,7 +180,7 @@ export default function SubmitOt() {
             <div><h2>{selectedEmployee?.name}</h2><span>{monthLabel} timesheet</span></div>
             <button className="soft-button compact" type="button" onClick={() => setStep(1)}><ChevronLeft size={14} /> Change employee</button>
           </div>
-          <p className="ot-hint">Default hours are 7:00 AM to 6:00 PM. Add OT in/out times for any day you worked overtime — OT can only start at 6:00 PM or later. Adjust any day, then submit.</p>
+          <p className="ot-hint">Default hours are 7:00 AM to 6:00 PM. Add OT in/out times for any day you worked overtime — OT must fall between 6:00 PM and 11:59 PM the same day. Adjust any day, then submit.</p>
           <div className="table-shell ot-table-shell">
             <table className="salary-table ot-timesheet-table">
               <thead>
@@ -202,8 +208,8 @@ export default function SubmitOt() {
                     </td>
                     <td data-label="In"><input aria-label={`In time for ${row.date}`} type="time" value={row.in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { in_time: event.target.value })} /></td>
                     <td data-label="Out"><input aria-label={`Out time for ${row.date}`} type="time" value={row.out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { out_time: event.target.value })} /></td>
-                    <td data-label="OT in"><input aria-label={`OT in time for ${row.date}`} type="time" min="18:00" max="23:59" value={row.ot_in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_in_time: clampOtInTime(event.target.value) })} /></td>
-                    <td data-label="OT out"><input aria-label={`OT out time for ${row.date}`} type="time" value={row.ot_out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_out_time: event.target.value })} /></td>
+                    <td data-label="OT in"><input aria-label={`OT in time for ${row.date}`} type="time" min={otWindowStart} max={otWindowEnd} value={row.ot_in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_in_time: clampOtTime(event.target.value) })} /></td>
+                    <td data-label="OT out"><input aria-label={`OT out time for ${row.date}`} type="time" min={otWindowStart} max={otWindowEnd} value={row.ot_out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_out_time: clampOtTime(event.target.value) })} /></td>
                   </tr>
                 ))}
               </tbody>
