@@ -46,6 +46,64 @@ function clampOtTime(value: string) {
   return value;
 }
 
+interface DraftState {
+  employeeId: string;
+  step: 1 | 2;
+  viewMonth: number;
+  viewYear: number;
+  rows: DayRow[];
+  lastActivity: number;
+}
+
+const draftStorageKey = 'clovehr-ot-draft';
+const draftExpiryMs = 5 * 60 * 1000;
+
+function readDraft(): DraftState | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(draftStorageKey);
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as DraftState;
+    if (Date.now() - draft.lastActivity > draftExpiryMs) {
+      window.localStorage.removeItem(draftStorageKey);
+      return null;
+    }
+    return draft;
+  } catch {
+    return null;
+  }
+}
+
+function writeDraft(draft: Omit<DraftState, 'lastActivity'>) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(draftStorageKey, JSON.stringify({ ...draft, lastActivity: Date.now() }));
+  } catch {
+    // Storage can be unavailable (private browsing, quota); the in-page state still works, it just won't survive a refresh.
+  }
+}
+
+function touchDraftActivity() {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = window.localStorage.getItem(draftStorageKey);
+    if (!raw) return;
+    const draft = JSON.parse(raw) as DraftState;
+    window.localStorage.setItem(draftStorageKey, JSON.stringify({ ...draft, lastActivity: Date.now() }));
+  } catch {
+    // Ignore — activity ping is best-effort.
+  }
+}
+
+function clearDraft() {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(draftStorageKey);
+  } catch {
+    // Ignore.
+  }
+}
+
 function buildMonthDays(month: number, year: number, saved: Map<string, SavedRecord>): DayRow[] {
   const daysInMonth = new Date(year, month, 0).getDate();
   const today = new Date();
@@ -72,6 +130,8 @@ function buildMonthDays(month: number, year: number, saved: Map<string, SavedRec
 }
 
 export default function SubmitOt() {
+  // Plain SSR-safe defaults — a saved draft (localStorage isn't available on
+  // the server) is restored client-side after mount, in the effect below.
   const [step, setStep] = useState<1 | 2>(1);
   const [employees, setEmployees] = useState<RosterEmployee[]>([]);
   const [employeesLoading, setEmployeesLoading] = useState(true);
@@ -81,6 +141,7 @@ export default function SubmitOt() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   const today = useMemo(() => new Date(), []);
   const currentMonth = today.getMonth() + 1;
@@ -92,12 +153,50 @@ export default function SubmitOt() {
   const selectedEmployee = employees.find((employee) => employee.id.toString() === employeeId) || null;
 
   useEffect(() => {
+    const draft = readDraft();
+    if (draft) {
+      setStep(draft.step);
+      setEmployeeId(draft.employeeId);
+      setRows(draft.rows);
+      setViewMonth(draft.viewMonth);
+      setViewYear(draft.viewYear);
+    }
+
     fetch('/api/public/employees')
       .then((res) => (res.ok ? res.json() : []))
       .then(setEmployees)
       .catch(() => setEmployees([]))
       .finally(() => setEmployeesLoading(false));
   }, []);
+
+  // Persist the in-progress timesheet so a refresh doesn't lose it, and keep
+  // extending the 5-minute activity window while the employee is on step 2.
+  useEffect(() => {
+    if (step !== 2 || !employeeId) return;
+    writeDraft({ employeeId, step, viewMonth, viewYear, rows });
+  }, [step, employeeId, viewMonth, viewYear, rows]);
+
+  useEffect(() => {
+    if (step !== 2 || !employeeId) return;
+    const bumpActivity = () => touchDraftActivity();
+    window.addEventListener('pointerdown', bumpActivity);
+    window.addEventListener('keydown', bumpActivity);
+    const watchdog = window.setInterval(() => {
+      const current = readDraft();
+      if (!current) {
+        clearDraft();
+        setStep(1);
+        setEmployeeId('');
+        setRows([]);
+        setSessionExpired(true);
+      }
+    }, 15000);
+    return () => {
+      window.removeEventListener('pointerdown', bumpActivity);
+      window.removeEventListener('keydown', bumpActivity);
+      window.clearInterval(watchdog);
+    };
+  }, [step, employeeId]);
 
   const loadTimesheet = async (targetMonth = viewMonth, targetYear = viewYear) => {
     if (!employeeId) return;
@@ -110,6 +209,7 @@ export default function SubmitOt() {
       const saved = new Map<string, SavedRecord>((data.records || []).map((record: SavedRecord) => [record.date, record]));
       setRows(buildMonthDays(targetMonth, targetYear, saved));
       setStep(2);
+      setSessionExpired(false);
     } catch {
       setError('Could not load your timesheet. Please try again.');
     } finally {
@@ -117,12 +217,18 @@ export default function SubmitOt() {
     }
   };
 
+  // Regularizing past attendance only reaches back one month from today.
+  const earliestMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+  const earliestYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+  const isEarliestMonth = viewMonth === earliestMonth && viewYear === earliestYear;
+
   const changeMonth = (delta: number) => {
     let nextMonth = viewMonth + delta;
     let nextYear = viewYear;
     if (nextMonth > 12) { nextMonth = 1; nextYear += 1; }
     if (nextMonth < 1) { nextMonth = 12; nextYear -= 1; }
     if (nextYear > currentYear || (nextYear === currentYear && nextMonth > currentMonth)) return;
+    if (nextYear < earliestYear || (nextYear === earliestYear && nextMonth < earliestMonth)) return;
     setViewMonth(nextMonth);
     setViewYear(nextYear);
     loadTimesheet(nextMonth, nextYear);
@@ -161,6 +267,7 @@ export default function SubmitOt() {
         }),
       });
       if (!res.ok) throw new Error('save-failed');
+      clearDraft();
       setSubmitted(true);
     } catch {
       setError('Your timesheet could not be submitted. Please try again.');
@@ -176,6 +283,7 @@ export default function SubmitOt() {
         <div className="login-brand"><span><CalendarClock size={25} /></span><div><p>CLOVE HR</p><h1>Submit Attendance</h1></div></div>
 
         {step === 1 && <>
+          {sessionExpired && <p className="login-error" role="alert">Your session timed out after 5 minutes of inactivity. Please select your name again.</p>}
           <p className="login-copy">Select your name to submit your timesheet for {monthLabel}. No login is required.</p>
           <div className="form-grid compact-grid">
             <label><span>Your name</span>
@@ -195,10 +303,10 @@ export default function SubmitOt() {
         {step === 2 && <>
           <div className="wizard-head ot-wizard-head">
             <div><h2>{selectedEmployee?.name}</h2><span>{monthLabel} timesheet</span></div>
-            <button className="soft-button compact" type="button" onClick={() => { setStep(1); setViewMonth(currentMonth); setViewYear(currentYear); }}><ChevronLeft size={14} /> Change employee</button>
+            <button className="soft-button compact" type="button" onClick={() => { clearDraft(); setStep(1); setViewMonth(currentMonth); setViewYear(currentYear); }}><ChevronLeft size={14} /> Change employee</button>
           </div>
           <div className="ot-month-nav">
-            <button className="icon-button small" type="button" title="Previous month" aria-label="Previous month" disabled={loadingSheet} onClick={() => changeMonth(-1)}><ChevronLeft size={16} /></button>
+            <button className="icon-button small" type="button" title="Previous month" aria-label="Previous month" disabled={loadingSheet || isEarliestMonth} onClick={() => changeMonth(-1)}><ChevronLeft size={16} /></button>
             <span>{monthLabel}{!isOngoingMonth && <small> &middot; past month, regularize as needed</small>}</span>
             <button className="icon-button small" type="button" title="Next month" aria-label="Next month" disabled={loadingSheet || isOngoingMonth} onClick={() => changeMonth(1)}><ChevronRight size={16} /></button>
           </div>
@@ -228,10 +336,10 @@ export default function SubmitOt() {
                         </select>
                       )}
                     </td>
-                    <td><input aria-label={`In time for ${row.date}`} type="time" value={row.in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { in_time: event.target.value })} /></td>
-                    <td><input aria-label={`Out time for ${row.date}`} type="time" value={row.out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { out_time: event.target.value })} /></td>
-                    <td><input aria-label={`OT in time for ${row.date}`} type="time" min={otWindowStart} max={otWindowEnd} value={row.ot_in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_in_time: clampOtTime(event.target.value) })} /></td>
-                    <td><input aria-label={`OT out time for ${row.date}`} type="time" min={otWindowStart} max={otWindowEnd} value={row.ot_out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_out_time: clampOtTime(event.target.value) })} /></td>
+                    <td><input aria-label={`In time for ${row.date}`} type="time" lang="en-GB" value={row.in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { in_time: event.target.value })} /></td>
+                    <td><input aria-label={`Out time for ${row.date}`} type="time" lang="en-GB" value={row.out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { out_time: event.target.value })} /></td>
+                    <td><input aria-label={`OT in time for ${row.date}`} type="time" lang="en-GB" min={otWindowStart} max={otWindowEnd} value={row.ot_in_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_in_time: clampOtTime(event.target.value) })} /></td>
+                    <td><input aria-label={`OT out time for ${row.date}`} type="time" lang="en-GB" min={otWindowStart} max={otWindowEnd} value={row.ot_out_time} disabled={row.isFriday || row.status !== 'present'} onChange={(event) => updateRow(row.date, { ot_out_time: clampOtTime(event.target.value) })} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -256,7 +364,7 @@ export default function SubmitOt() {
           <button className="text-link ot-success-download" type="button" onClick={downloadTimesheetPdf}><Download size={15} /> Click here to download PDF</button>
           <div className="action-row">
             <button className="soft-button" type="button" onClick={() => window.location.assign('/login')}>Close</button>
-            <button className="dark-button" type="button" onClick={() => { setSubmitted(false); setStep(1); setEmployeeId(''); setRows([]); setViewMonth(currentMonth); setViewYear(currentYear); }}><Check size={16} /> Submit another</button>
+            <button className="dark-button" type="button" onClick={() => { clearDraft(); setSubmitted(false); setStep(1); setEmployeeId(''); setRows([]); setViewMonth(currentMonth); setViewYear(currentYear); }}><Check size={16} /> Submit another</button>
           </div>
         </div>
       </div>

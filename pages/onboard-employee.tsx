@@ -22,7 +22,6 @@ const emptyForm = {
   job_title: '',
   job_level: 'labour',
   site_id: '',
-  salary: '5400',
   medium: 'cash',
 };
 
@@ -55,7 +54,6 @@ export default function OnboardEmployee() {
           job_title: form.job_title.trim(),
           job_level: form.job_level,
           site_id: Number(form.site_id),
-          salary: Number(form.salary) || 5400,
           medium: form.medium,
         }),
       });
@@ -102,9 +100,6 @@ export default function OnboardEmployee() {
                   {jobLevels.map((level) => <option key={level.value} value={level.value}>{level.label}</option>)}
                 </select>
               </label>
-              <label><span>Monthly salary (MVR)</span>
-                <input type="number" min="0" step="0.01" value={form.salary} onChange={(event) => setForm({ ...form, salary: event.target.value })} />
-              </label>
               <label><span>Payment method</span>
                 <select value={form.medium} onChange={(event) => setForm({ ...form, medium: event.target.value })}>
                   <option value="cash">Cash</option>
@@ -122,7 +117,7 @@ export default function OnboardEmployee() {
           <div className="wizard-panel attendance-success">
             <UserPlus size={30} />
             <h3>Employee onboarded</h3>
-            <p>{onboardedName} has been added and is now visible to the super admin.</p>
+            <p>{onboardedName} has been added with the default MVR 5,400 salary and is now visible to the super admin, who can adjust the salary and other details anytime.</p>
             <button className="dark-button" type="button" onClick={() => { setOnboardedName(''); setForm(emptyForm); }}><Check size={16} /> Onboard another</button>
             <Link className="text-link ot-back-link" href="/login"><ArrowLeft size={14} /> Back to sign in</Link>
           </div>

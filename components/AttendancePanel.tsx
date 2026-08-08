@@ -241,19 +241,19 @@ export function AttendancePanel({
               <div className="form-grid compact-grid attendance-time-grid">
                 <label>
                   <span>In time</span>
-                  <input aria-label="Attendance in time" type="time" value={journeyInTime} onChange={(event) => setJourneyInTime(event.target.value)} />
+                  <input aria-label="Attendance in time" type="time" lang="en-GB" value={journeyInTime} onChange={(event) => setJourneyInTime(event.target.value)} />
                 </label>
                 <label>
                   <span>Out time</span>
-                  <input aria-label="Attendance out time" type="time" value={journeyOutTime} onChange={(event) => setJourneyOutTime(event.target.value)} />
+                  <input aria-label="Attendance out time" type="time" lang="en-GB" value={journeyOutTime} onChange={(event) => setJourneyOutTime(event.target.value)} />
                 </label>
                 <label>
                   <span>OT in time</span>
-                  <input aria-label="Overtime in time" type="time" value={journeyOtInTime} onChange={(event) => setJourneyOtInTime(event.target.value)} />
+                  <input aria-label="Overtime in time" type="time" lang="en-GB" value={journeyOtInTime} onChange={(event) => setJourneyOtInTime(event.target.value)} />
                 </label>
                 <label>
                   <span>OT out time</span>
-                  <input aria-label="Overtime out time" type="time" value={journeyOtOutTime} onChange={(event) => setJourneyOtOutTime(event.target.value)} />
+                  <input aria-label="Overtime out time" type="time" lang="en-GB" value={journeyOtOutTime} onChange={(event) => setJourneyOtOutTime(event.target.value)} />
                 </label>
               </div>
             )}

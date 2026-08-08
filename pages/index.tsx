@@ -1,6 +1,6 @@
 // pages/index.tsx
 import Head from 'next/head';
-import { Fragment, type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { Fragment, type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BriefcaseBusiness,
   CalendarDays,
@@ -2173,16 +2173,16 @@ function AttendancePanel({
           {journeyStep === 3 && <div className="wizard-panel">
             {isFridayDate(date) ? <p className="friday-attendance-note">Friday is an off day. No in or out time will be recorded.</p> : <>
               <div className="form-grid compact-grid attendance-time-grid">
-                <label><span>In time</span><input aria-label="Attendance in time" type="time" value={journeyInTime} onChange={(event) => setJourneyInTime(event.target.value)} /></label>
-                <label><span>Out time</span><input aria-label="Attendance out time" type="time" value={journeyOutTime} onChange={(event) => setJourneyOutTime(event.target.value)} /></label>
+                <label><span>In time</span><input aria-label="Attendance in time" type="time" lang="en-GB" value={journeyInTime} onChange={(event) => setJourneyInTime(event.target.value)} /></label>
+                <label><span>Out time</span><input aria-label="Attendance out time" type="time" lang="en-GB" value={journeyOutTime} onChange={(event) => setJourneyOutTime(event.target.value)} /></label>
               </div>
               <label className="attendance-ot-toggle"><input type="checkbox" checked={journeyOtEnabled} onChange={(event) => {
                 setJourneyOtEnabled(event.target.checked);
                 if (!event.target.checked) { setJourneyOtInTime(''); setJourneyOtOutTime(''); }
               }} /><span>Enable OT</span></label>
               {journeyOtEnabled && <div className="form-grid compact-grid attendance-time-grid attendance-ot-fields">
-                <label><span>OT in time</span><input aria-label="Overtime in time" type="time" value={journeyOtInTime} onChange={(event) => setJourneyOtInTime(event.target.value)} /></label>
-                <label><span>OT out time</span><input aria-label="Overtime out time" type="time" value={journeyOtOutTime} onChange={(event) => setJourneyOtOutTime(event.target.value)} /></label>
+                <label><span>OT in time</span><input aria-label="Overtime in time" type="time" lang="en-GB" value={journeyOtInTime} onChange={(event) => setJourneyOtInTime(event.target.value)} /></label>
+                <label><span>OT out time</span><input aria-label="Overtime out time" type="time" lang="en-GB" value={journeyOtOutTime} onChange={(event) => setJourneyOtOutTime(event.target.value)} /></label>
               </div>}
             </>}
             <div className="attendance-confirm-list">
@@ -2349,7 +2349,7 @@ function AttendancePanel({
                 <td>
                   <input
                     aria-label={`In time for ${record.employee_name}`}
-                    type="time"
+                    type="time" lang="en-GB"
                     value={record.in_time || ''}
                     onChange={(event) => updateRecord(record.employee_id, { in_time: event.target.value || null })}
                     disabled={friday}
@@ -2358,7 +2358,7 @@ function AttendancePanel({
                 <td>
                   <input
                     aria-label={`Out time for ${record.employee_name}`}
-                    type="time"
+                    type="time" lang="en-GB"
                     value={record.out_time || ''}
                     onChange={(event) => updateRecord(record.employee_id, { out_time: event.target.value || null })}
                     disabled={friday}
@@ -2367,7 +2367,7 @@ function AttendancePanel({
                 <td>
                   <input
                     aria-label={`OT in time for ${record.employee_name}`}
-                    type="time"
+                    type="time" lang="en-GB"
                     value={record.ot_in_time || ''}
                     onChange={(event) => updateRecord(record.employee_id, { ot_in_time: event.target.value || null })}
                     disabled={friday}
@@ -2376,7 +2376,7 @@ function AttendancePanel({
                 <td>
                   <input
                     aria-label={`OT out time for ${record.employee_name}`}
-                    type="time"
+                    type="time" lang="en-GB"
                     value={record.ot_out_time || ''}
                     onChange={(event) => updateRecord(record.employee_id, { ot_out_time: event.target.value || null })}
                     disabled={friday}
@@ -2577,6 +2577,41 @@ function SalaryJourney({
 	    : selectedEmployees[0]?.name || 'No employee selected';
 	  const businessYear = getBusinessYear();
 	  const targetEmployeeIds = selectedEmployees.map((employee) => employee.id);
+	  const [regularizedAttendance, setRegularizedAttendance] = useState<AttendanceSummaryRow | null>(null);
+	  const appliedAttendanceKey = useRef<string | null>(null);
+	  const singleTargetId = selectedEmployees.length === 1 ? selectedEmployees[0].id : null;
+
+	  // Pull the employee's own regularized attendance (worked/absent days,
+	  // OT hours) for the selected salary month, so payroll reflects what was
+	  // actually submitted rather than a blank manual entry.
+	  useEffect(() => {
+	    if (step !== 3 || !singleTargetId) {
+	      setRegularizedAttendance(null);
+	      return;
+	    }
+	    const key = `${singleTargetId}-${form.month}-${businessYear}`;
+	    let cancelled = false;
+	    fetch(`/api/reports/attendance-summary?month=${form.month}&year=${businessYear}`)
+	      .then((res) => (res.ok ? res.json() : []))
+	      .then((rows: AttendanceSummaryRow[]) => {
+	        if (cancelled) return;
+	        const row = rows.find((item) => item.employee_id === singleTargetId) || null;
+	        setRegularizedAttendance(row);
+	        if (row && appliedAttendanceKey.current !== key) {
+	          appliedAttendanceKey.current = key;
+	          onChange({
+	            ...form,
+	            absent_days: row.days_absent,
+	            worked_days: Math.max(0, salaryPeriodDays - row.days_absent),
+	            ot_hours: row.ot_hours,
+	          });
+	        }
+	      })
+	      .catch(() => { if (!cancelled) setRegularizedAttendance(null); });
+	    return () => { cancelled = true; };
+	    // eslint-disable-next-line react-hooks/exhaustive-deps
+	  }, [step, singleTargetId, form.month, businessYear]);
+
 	  const paidMonths = getPaidSalaryMonthsForEmployees(salaryTransactions, targetEmployeeIds, businessYear);
 	  const eligibleMonths = getCommonEligibleSalaryMonths(selectedEmployees, businessYear);
 	  const compactMonthWindow = getCompactSalaryMonthWindow(selectedEmployees, businessYear);
@@ -2846,6 +2881,14 @@ function SalaryJourney({
                 </label>
               </div>
               <p className="salary-proration-note">OT rate defaults to each employee&rsquo;s basic-salary hourly rate ({formatCurrency(defaultOtRate)}/hr); edit it to apply a different rate to everyone selected.</p>
+              {singleTargetId && regularizedAttendance && (
+                <p className="salary-proration-note salary-attendance-note">
+                  Pulled from {selectedEmployees[0]?.name}&rsquo;s regularized attendance: {regularizedAttendance.days_worked} days worked, {regularizedAttendance.days_absent} days absent, {regularizedAttendance.work_hours.toFixed(1)} work hours, {regularizedAttendance.ot_hours.toFixed(1)} OT hours. Adjust above if needed.
+                </p>
+              )}
+              {singleTargetId && !regularizedAttendance && (
+                <p className="salary-proration-note">No submitted attendance found for {selectedEmployees[0]?.name} in {monthNames[form.month - 1]} {businessYear} — enter absent days and OT hours manually.</p>
+              )}
             </div>
           )}
 
@@ -3065,6 +3108,8 @@ function getEligibleSalaryMonths(employee: Employee, businessYear: number) {
     .filter((month) => month >= startMonth);
 }
 
+// Payroll is only ever run for the last fully completed month — never the
+// current (still in-progress) month, never further back, never a future one.
 function getCommonEligibleSalaryMonths(employees: Employee[], businessYear: number) {
   if (employees.length === 0) return [];
 
@@ -3074,37 +3119,16 @@ function getCommonEligibleSalaryMonths(employees: Employee[], businessYear: numb
   if (latestStartMonth > monthNames.length) return [];
 
   const today = new Date();
-  // Never offer a future month that hasn't happened yet.
-  const latestEligibleMonth = businessYear === today.getFullYear() ? today.getMonth() + 1 : monthNames.length;
+  if (businessYear !== today.getFullYear()) return [];
+  const currentMonth = today.getMonth() + 1;
+  if (currentMonth === 1) return [];
+  const lastMonth = currentMonth - 1;
 
-  return monthNames
-    .map((_, index) => index + 1)
-    .filter((month) => month >= latestStartMonth && month <= latestEligibleMonth);
+  return lastMonth >= latestStartMonth ? [lastMonth] : [];
 }
 
 function getCompactSalaryMonthWindow(employees: Employee[], businessYear: number) {
-  if (employees.length === 0) return [];
-
-  const today = new Date();
-  const currentYear = today.getFullYear();
-  const currentMonth = today.getMonth() + 1;
-
-  if (businessYear !== currentYear) {
-    return getCommonEligibleSalaryMonths(employees, businessYear).slice(0, 3);
-  }
-
-  const joinStartMonth = Math.max(
-    ...employees.map((employee) => getSalaryStartMonth(employee.join_date, businessYear))
-  );
-  // Always surface the past 2 months alongside the current month so a
-  // delayed payroll run is never hidden behind "Show more months" — never
-  // show a future month that hasn't happened yet.
-  const startMonth = Math.max(1, currentMonth - 2, joinStartMonth);
-  const endMonth = Math.min(monthNames.length, currentMonth);
-
-  return monthNames
-    .map((_, index) => index + 1)
-    .filter((month) => month >= startMonth && month <= endMonth);
+  return getCommonEligibleSalaryMonths(employees, businessYear);
 }
 
 function getSalaryStartMonth(joinDate: string | null | undefined, businessYear: number) {

@@ -1429,6 +1429,12 @@ button:disabled {
   margin: 12px 0 0;
 }
 
+.salary-attendance-note {
+  border-color: #9bd2b1;
+  background: #eef9f2;
+  color: #276749;
+}
+
 .save-confirmation {
   margin-right: auto;
   color: #237a43;
