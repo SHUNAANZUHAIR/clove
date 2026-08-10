@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
-import { ArrowLeft, BriefcaseBusiness, CalendarClock, CircleDollarSign, Coffee, Hotel, LockKeyhole, MapPin, UserPlus, UserSearch, UsersRound } from 'lucide-react';
+import { ArrowLeft, BriefcaseBusiness, CalendarClock, CircleDollarSign, ClipboardList, Coffee, Hotel, LockKeyhole, MapPin, UserPlus, UserSearch, UsersRound } from 'lucide-react';
 import SubmitAttendanceButton from '../components/SubmitAttendanceButton';
 
 interface LoginSite { id: number; name: string; location?: string; }
@@ -54,54 +54,61 @@ export default function Login() {
   return <>
     <Head><title>Sign in | CloveHR</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
     <main className="login-page">
-      <div className="login-stack">
-        <section className="login-card">
-          <div className="login-brand"><span><BriefcaseBusiness size={25} /></span><div><p>CLOVE HR</p><h1>Clove Construction</h1></div></div>
+      <div className="login-shell">
+        <div className="login-page-header">
+          <h2>CLOVE PARTNERS</h2>
+          <p>Human Resource Portals</p>
+        </div>
+        <div className="login-stack">
+          <section className="login-card">
+            <div className="login-brand"><span><BriefcaseBusiness size={25} /></span><div><p>CLOVE HR</p><h1>Clove Construction</h1></div></div>
 
-          {mode === 'none' ? (
-            <>
-              <p className="login-copy">Submit your attendance, or sign in to manage a work site, the team, or payroll.</p>
+            {mode === 'none' ? (
+              <>
+                <p className="login-copy">Submit your attendance, or sign in to manage a work site, the team, or payroll.</p>
+                <div className="login-links login-links-primary">
+                  <Link className="soft-button submit-attendance-button" href="/submit-ot"><CalendarClock size={16} /> Submit Attendance</Link>
+                  <button className="soft-button" type="button" onClick={() => openLoginForm('manage')}><UsersRound size={16} /> Manage people</button>
+                  <Link className="soft-button" href="/onboard-employee"><UserPlus size={16} /> New staff onboarding</Link>
+                  <button className="soft-button" type="button" onClick={() => openLoginForm('salary')}><CircleDollarSign size={16} /> Process Salary</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="login-copy">{mode === 'salary' ? 'Sign in as super admin to process salary.' : 'Select your work site and enter the password to continue.'}</p>
+                <form onSubmit={submit}>
+                  <label><span>Work site / username</span><div className="login-input"><MapPin size={17} /><select name="username" autoComplete="username" required value={siteId} onChange={(event) => setSiteId(event.target.value)} disabled={mode === 'salary'}><option value="">Select site</option><option value="super_admin">Super Admin</option>{mode !== 'salary' && sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}</select></div></label>
+                  <label><span>Password</span><div className="login-input"><LockKeyhole size={17} /><input name="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></div></label>
+                  {error && <p className="login-error" role="alert">{error}</p>}
+                  <button className="dark-button" type="submit" disabled={submitting || !siteId}>{submitting ? 'Signing in...' : 'Sign in to CloveHR'}</button>
+                </form>
+                <button className="text-link login-collapse" type="button" onClick={closeForm}><ArrowLeft size={14} /> Back</button>
+              </>
+            )}
+          </section>
+
+          {quickLogins.map((quickLogin) => (
+            <section className={`login-card ${quickLogin.cardClass}`} key={quickLogin.id}>
+              <div className="login-brand"><span><quickLogin.icon size={25} /></span><div><h1>{quickLogin.title}</h1></div></div>
+              <p className="login-copy">Sign in to {quickLogin.title}, independently of CloveHR.</p>
               <div className="login-links login-links-primary">
-                <Link className="soft-button submit-attendance-button" href="/submit-ot"><CalendarClock size={16} /> Submit Attendance</Link>
-                <button className="soft-button" type="button" onClick={() => openLoginForm('manage')}><UsersRound size={16} /> Manage people</button>
-                <Link className="soft-button" href="/onboard-employee"><UserPlus size={16} /> New staff onboarding</Link>
-                <button className="soft-button" type="button" onClick={() => openLoginForm('salary')}><CircleDollarSign size={16} /> Process Salary</button>
+                <Link className="soft-button" href={quickLogin.href}>
+                  <quickLogin.icon size={16} /> {quickLogin.buttonLabel}
+                </Link>
+                <SubmitAttendanceButton />
               </div>
-            </>
-          ) : (
-            <>
-              <p className="login-copy">{mode === 'salary' ? 'Sign in as super admin to process salary.' : 'Select your work site and enter the password to continue.'}</p>
-              <form onSubmit={submit}>
-                <label><span>Work site / username</span><div className="login-input"><MapPin size={17} /><select name="username" autoComplete="username" required value={siteId} onChange={(event) => setSiteId(event.target.value)} disabled={mode === 'salary'}><option value="">Select site</option><option value="super_admin">Super Admin</option>{mode !== 'salary' && sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}</select></div></label>
-                <label><span>Password</span><div className="login-input"><LockKeyhole size={17} /><input name="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></div></label>
-                {error && <p className="login-error" role="alert">{error}</p>}
-                <button className="dark-button" type="submit" disabled={submitting || !siteId}>{submitting ? 'Signing in...' : 'Sign in to CloveHR'}</button>
-              </form>
-              <button className="text-link login-collapse" type="button" onClick={closeForm}><ArrowLeft size={14} /> Back</button>
-            </>
-          )}
-        </section>
+            </section>
+          ))}
 
-        {quickLogins.map((quickLogin) => (
-          <section className={`login-card ${quickLogin.cardClass}`} key={quickLogin.id}>
-            <div className="login-brand"><span><quickLogin.icon size={25} /></span><div><h1>{quickLogin.title}</h1></div></div>
-            <p className="login-copy">Sign in to {quickLogin.title}, independently of CloveHR.</p>
+          <section className="login-card">
+            <div className="login-brand"><span><UserSearch size={25} /></span><div><h1>New Employee Recruitment</h1></div></div>
+            <p className="login-copy">Submit a candidate&rsquo;s details. This is a standalone record, independent of Clove Construction, Cafe, or Guesthouse.</p>
             <div className="login-links login-links-primary">
-              <Link className="soft-button" href={quickLogin.href}>
-                <quickLogin.icon size={16} /> {quickLogin.buttonLabel}
-              </Link>
-              <SubmitAttendanceButton />
+              <Link className="soft-button" href="/recruitment"><UserSearch size={16} /> New Employee Recruitment</Link>
+              <Link className="soft-button" href="/recruitment-review"><ClipboardList size={16} /> View submitted requests</Link>
             </div>
           </section>
-        ))}
-
-        <section className="login-card">
-          <div className="login-brand"><span><UserSearch size={25} /></span><div><h1>New Employee Recruitment</h1></div></div>
-          <p className="login-copy">Submit a candidate&rsquo;s details. This is a standalone record, independent of Clove Construction, Cafe, or Guesthouse.</p>
-          <div className="login-links login-links-primary">
-            <Link className="soft-button" href="/recruitment"><UserSearch size={16} /> New Employee Recruitment</Link>
-          </div>
-        </section>
+        </div>
       </div>
     </main>
   </>;
