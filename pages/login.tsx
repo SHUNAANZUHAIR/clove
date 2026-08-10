@@ -65,7 +65,6 @@ export default function Login() {
                 <Link className="soft-button submit-attendance-button" href="/submit-ot"><CalendarClock size={16} /> Submit Attendance</Link>
                 <button className="soft-button" type="button" onClick={() => openLoginForm('manage')}><UsersRound size={16} /> Manage people</button>
                 <Link className="soft-button" href="/onboard-employee"><UserPlus size={16} /> New staff onboarding</Link>
-                <Link className="soft-button" href="/recruitment"><UserSearch size={16} /> New Employee Recruitment</Link>
                 <button className="soft-button" type="button" onClick={() => openLoginForm('salary')}><CircleDollarSign size={16} /> Process Salary</button>
               </div>
             </>
@@ -95,6 +94,14 @@ export default function Login() {
             </div>
           </section>
         ))}
+
+        <section className="login-card">
+          <div className="login-brand"><span><UserSearch size={25} /></span><div><h1>New Employee Recruitment</h1></div></div>
+          <p className="login-copy">Submit a candidate&rsquo;s details. This is a standalone record, independent of Clove Construction, Cafe, or Guesthouse.</p>
+          <div className="login-links login-links-primary">
+            <Link className="soft-button" href="/recruitment"><UserSearch size={16} /> New Employee Recruitment</Link>
+          </div>
+        </section>
       </div>
     </main>
   </>;
