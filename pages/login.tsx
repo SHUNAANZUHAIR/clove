@@ -90,8 +90,7 @@ export default function Login() {
           {quickLogins.map((quickLogin) => (
             <section className={`login-card ${quickLogin.cardClass}`} key={quickLogin.id}>
               <div className="login-brand"><span><quickLogin.icon size={25} /></span><div><h1>{quickLogin.title}</h1></div></div>
-              <p className="login-copy">Sign in to {quickLogin.title}, independently of CloveHR.</p>
-              <div className="login-links login-links-primary">
+              <div className="login-links login-links-primary login-links-standalone">
                 <Link className="soft-button" href={quickLogin.href}>
                   <quickLogin.icon size={16} /> {quickLogin.buttonLabel}
                 </Link>
