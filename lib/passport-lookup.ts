@@ -1,7 +1,7 @@
 // Looks an employee up by passport number and sends them straight into
 // their timesheet, skipping the name picker on /submit-ot.
 export async function submitAttendanceByPassport() {
-  const passport = window.prompt('Enter your passport number to submit attendance:')?.trim();
+  const passport = window.prompt('Enter password:')?.trim();
   if (!passport) return;
 
   try {
