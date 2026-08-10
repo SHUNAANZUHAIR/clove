@@ -1,6 +1,6 @@
 import Head from 'next/head';
 import Link from 'next/link';
-import { FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, BriefcaseBusiness, CalendarClock, CircleDollarSign, Coffee, Hotel, LockKeyhole, MapPin, UserPlus, UsersRound } from 'lucide-react';
 
 interface LoginSite { id: number; name: string; location?: string; }
@@ -19,6 +19,7 @@ const quickLogins: QuickLogin[] = [
 ];
 
 type LoginMode = 'none' | 'manage' | 'salary' | string;
+type RedirectTarget = '' | 'salary';
 
 export default function Login() {
   const [sites, setSites] = useState<LoginSite[]>([]);
@@ -31,7 +32,6 @@ export default function Login() {
   useEffect(() => { fetch('/api/auth/sites').then((res) => res.ok ? res.json() : []).then(setSites); }, []);
 
   const activeQuickLogin = quickLogins.find((quickLogin) => quickLogin.id === mode);
-  const activeSite = activeQuickLogin ? sites.find((site) => site.name === activeQuickLogin.siteName) : undefined;
   const siteLocked = mode === 'salary' || Boolean(activeQuickLogin);
 
   const openLoginForm = (nextMode: 'manage' | 'salary') => {
@@ -42,8 +42,7 @@ export default function Login() {
 
   const openQuickLogin = (quickLogin: QuickLogin) => {
     setError('');
-    const site = sites.find((candidate) => candidate.name === quickLogin.siteName);
-    setSiteId(site ? String(site.id) : '');
+    setSiteId('super_admin');
     setMode(quickLogin.id);
   };
 
@@ -54,32 +53,34 @@ export default function Login() {
     setPassword('');
   };
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault(); setError(''); setSubmitting(true);
+  const submit = async (redirectTarget: RedirectTarget) => {
+    setError(''); setSubmitting(true);
     const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site_id: siteId, password }) });
     setSubmitting(false);
     if (!res.ok) return setError('Incorrect site or password. Please try again.');
-    window.location.assign(mode === 'salary' ? '/?tab=salary' : '/');
+    window.location.assign(redirectTarget ? `/?tab=${redirectTarget}` : '/');
   };
 
   const renderLoginForm = () => (
     <>
-      {activeQuickLogin && sites.length > 0 && !activeSite ? (
-        <p className="login-copy">
-          No work site named &quot;{activeQuickLogin.siteName}&quot; exists yet. Ask a super admin to create it under Sites, or{' '}
-          <button className="text-link" type="button" onClick={() => setMode('manage')}>choose a work site</button> instead.
-        </p>
-      ) : (
-        <>
-          <p className="login-copy">{mode === 'salary' ? 'Sign in as super admin to process salary.' : activeQuickLogin ? `Sign in to ${activeQuickLogin.siteName}.` : 'Select your work site and enter the password to continue.'}</p>
-          <form onSubmit={submit}>
-            <label><span>Work site / username</span><div className="login-input"><MapPin size={17} /><select name="username" autoComplete="username" required value={siteId} onChange={(event) => setSiteId(event.target.value)} disabled={siteLocked}><option value="">Select site</option><option value="super_admin">Super Admin</option>{!siteLocked && sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}{activeSite && <option value={activeSite.id}>{activeSite.name}</option>}</select></div></label>
-            <label><span>Password</span><div className="login-input"><LockKeyhole size={17} /><input name="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></div></label>
-            {error && <p className="login-error" role="alert">{error}</p>}
-            <button className="dark-button" type="submit" disabled={submitting || !siteId}>{submitting ? 'Signing in...' : 'Sign in to CloveHR'}</button>
-          </form>
-        </>
-      )}
+      <p className="login-copy">{activeQuickLogin ? `Sign in as super admin to manage ${activeQuickLogin.siteName}.` : mode === 'salary' ? 'Sign in as super admin to process salary.' : 'Select your work site and enter the password to continue.'}</p>
+      <form onSubmit={(event) => { event.preventDefault(); submit(mode === 'salary' ? 'salary' : ''); }}>
+        <label><span>Work site / username</span><div className="login-input"><MapPin size={17} /><select name="username" autoComplete="username" required value={siteId} onChange={(event) => setSiteId(event.target.value)} disabled={siteLocked}><option value="">Select site</option><option value="super_admin">Super Admin</option>{!siteLocked && sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}</select></div></label>
+        <label><span>Password</span><div className="login-input"><LockKeyhole size={17} /><input name="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></div></label>
+        {error && <p className="login-error" role="alert">{error}</p>}
+        {activeQuickLogin ? (
+          <>
+            <button className="dark-button" type="button" disabled={submitting || !siteId} onClick={() => submit('')}>
+              <UsersRound size={16} /> {submitting ? 'Signing in...' : 'Manage staff'}
+            </button>
+            <button className="dark-button" type="button" disabled={submitting || !siteId} onClick={() => submit('salary')}>
+              <CircleDollarSign size={16} /> {submitting ? 'Signing in...' : 'Give salary'}
+            </button>
+          </>
+        ) : (
+          <button className="dark-button" type="submit" disabled={submitting || !siteId}>{submitting ? 'Signing in...' : 'Sign in to CloveHR'}</button>
+        )}
+      </form>
       <button className="text-link login-collapse" type="button" onClick={closeForm}><ArrowLeft size={14} /> Back</button>
     </>
   );
@@ -112,9 +113,12 @@ export default function Login() {
             {mode !== quickLogin.id ? (
               <>
                 <p className="login-copy">Sign in to {quickLogin.siteName}.</p>
-                <button className="soft-button" type="button" onClick={() => openQuickLogin(quickLogin)}>
-                  <quickLogin.icon size={16} /> {quickLogin.buttonLabel}
-                </button>
+                <div className="login-links login-links-primary">
+                  <button className="soft-button" type="button" onClick={() => openQuickLogin(quickLogin)}>
+                    <quickLogin.icon size={16} /> {quickLogin.buttonLabel}
+                  </button>
+                  <Link className="soft-button submit-attendance-button" href="/submit-ot"><CalendarClock size={16} /> Submit Attendance</Link>
+                </div>
               </>
             ) : renderLoginForm()}
           </section>
