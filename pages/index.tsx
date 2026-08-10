@@ -725,6 +725,8 @@ export default function Home() {
         worked_days: salaryForm.worked_days,
         absent_days: salaryForm.absent_days,
         cash_advance: salaryForm.cash_advance,
+        ot_hours: salaryForm.ot_hours,
+        ot_rate: salaryForm.ot_rate,
         status: salaryForm.status,
       }),
     });
