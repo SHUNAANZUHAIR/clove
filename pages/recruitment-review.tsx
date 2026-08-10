@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { FormEvent, useEffect, useState } from 'react';
+import { ArrowLeft, LockKeyhole, MapPin } from 'lucide-react';
 
 interface Candidate {
   id: number;
@@ -23,7 +23,11 @@ const professionLabels: Record<string, string> = {
 };
 
 export default function RecruitmentReview() {
-  const [authorized, setAuthorized] = useState<boolean | null>(null);
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [password, setPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [signingIn, setSigningIn] = useState(false);
+
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [selectedSite, setSelectedSite] = useState<Record<number, string>>({});
@@ -34,11 +38,11 @@ export default function RecruitmentReview() {
   useEffect(() => {
     fetch('/api/auth/session')
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setAuthorized(Boolean(data?.is_super_admin)));
+      .then((data) => setAuthenticated(Boolean(data?.is_super_admin)));
   }, []);
 
   useEffect(() => {
-    if (!authorized) return;
+    if (!authenticated) return;
     Promise.all([
       fetch('/api/recruitment').then((res) => (res.ok ? res.json() : [])),
       fetch('/api/auth/sites').then((res) => (res.ok ? res.json() : [])),
@@ -49,7 +53,21 @@ export default function RecruitmentReview() {
       })
       .catch(() => setError('Could not load recruitment candidates.'))
       .finally(() => setLoading(false));
-  }, [authorized]);
+  }, [authenticated]);
+
+  const signIn = async (event: FormEvent) => {
+    event.preventDefault();
+    setLoginError('');
+    setSigningIn(true);
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ site_id: 'super_admin', password }),
+    });
+    setSigningIn(false);
+    if (!res.ok) return setLoginError('Incorrect super admin password. Please try again.');
+    setAuthenticated(true);
+  };
 
   const moveToBusiness = async (candidateId: number) => {
     const siteId = selectedSite[candidateId];
@@ -74,12 +92,20 @@ export default function RecruitmentReview() {
     }
   };
 
-  if (authorized === false) {
+  if (!authenticated) {
     return <>
-      <Head><title>Recruitment Candidates | CloveHR</title></Head>
-      <main className="app-canvas">
-        <section className="app-shell">
-          <div className="empty-state">Only the super admin can review recruitment candidates. <Link href="/">Back to CloveHR</Link></div>
+      <Head><title>Sign in | Recruitment</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
+      <main className="login-page">
+        <section className="login-card">
+          <div className="login-brand"><span><LockKeyhole size={25} /></span><div><p>CLOVE HR</p><h1>Recruitment Candidates</h1></div></div>
+          <p className="login-copy">Sign in as super admin to review submitted recruitment candidates.</p>
+          <form onSubmit={signIn}>
+            <label><span>Username</span><div className="login-input"><MapPin size={17} /><input type="text" value="Super Admin" disabled /></div></label>
+            <label><span>Password</span><div className="login-input"><LockKeyhole size={17} /><input name="password" type="password" autoComplete="current-password" autoFocus required value={password} onChange={(event) => setPassword(event.target.value)} /></div></label>
+            {loginError && <p className="login-error" role="alert">{loginError}</p>}
+            <button className="dark-button" type="submit" disabled={signingIn || !password}>{signingIn ? 'Signing in...' : 'Sign in'}</button>
+          </form>
+          <Link className="text-link login-collapse" href="/login"><ArrowLeft size={14} /> Back to sign in</Link>
         </section>
       </main>
     </>;
@@ -100,7 +126,7 @@ export default function RecruitmentReview() {
           </div>
         </header>
 
-        {loading || authorized === null ? (
+        {loading ? (
           <div className="empty-state">Loading candidates...</div>
         ) : candidates.length === 0 ? (
           <div className="empty-state">No pending recruitment candidates.</div>
