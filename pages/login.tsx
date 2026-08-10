@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
-import { ArrowLeft, BriefcaseBusiness, CalendarClock, CircleDollarSign, ClipboardList, Coffee, Hotel, LockKeyhole, MapPin, UserPlus, UserSearch, UsersRound } from 'lucide-react';
+import { ArrowLeft, BriefcaseBusiness, CalendarClock, CircleDollarSign, Coffee, Hotel, LockKeyhole, MapPin, UserPlus, UserSearch, UsersRound } from 'lucide-react';
 import SubmitAttendanceButton from '../components/SubmitAttendanceButton';
 
 interface LoginSite { id: number; name: string; location?: string; }
@@ -105,7 +105,6 @@ export default function Login() {
             <p className="login-copy">Submit a candidate&rsquo;s details. This is a standalone record, independent of Clove Construction, Cafe, or Guesthouse.</p>
             <div className="login-links login-links-primary">
               <Link className="soft-button" href="/recruitment"><UserSearch size={16} /> New Employee Recruitment</Link>
-              <Link className="soft-button" href="/recruitment-review"><ClipboardList size={16} /> View submitted requests</Link>
             </div>
           </section>
         </div>
