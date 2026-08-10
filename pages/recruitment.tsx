@@ -61,7 +61,7 @@ export default function Recruitment() {
 
         {!submittedName ? (
           <>
-            <p className="login-copy">Add a candidate&rsquo;s details below. This is a standalone recruitment record, separate from Clove Construction, Cafe, or Guesthouse staff. No login is required.</p>
+            <p className="login-copy">Add a candidate&rsquo;s details below. You will be contacted by Clove if you are selected for the job. No login is required.</p>
             <div className="form-grid compact-grid">
               <label><span>Full name</span>
                 <input type="text" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />

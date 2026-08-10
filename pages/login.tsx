@@ -101,7 +101,7 @@ export default function Login() {
 
           <section className="login-card">
             <div className="login-brand"><span><UserSearch size={25} /></span><div><h1>New Employee Recruitment</h1></div></div>
-            <p className="login-copy">Submit a candidate&rsquo;s details. This is a standalone record, independent of Clove Construction, Cafe, or Guesthouse.</p>
+            <p className="login-copy">Submit a candidate&rsquo;s details. You will be contacted by Clove if you are selected for the job.</p>
             <div className="login-links login-links-primary">
               <Link className="soft-button" href="/recruitment"><UserSearch size={16} /> New Employee Recruitment</Link>
             </div>
