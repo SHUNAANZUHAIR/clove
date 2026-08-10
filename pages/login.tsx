@@ -107,7 +107,7 @@ export default function Login() {
         </section>
 
         {quickLogins.map((quickLogin) => (
-          <section className="login-card quick-login-card" key={quickLogin.id}>
+          <section className="login-card" key={quickLogin.id}>
             <div className="login-brand"><span><quickLogin.icon size={25} /></span><div><h1>{quickLogin.title}</h1></div></div>
             {mode !== quickLogin.id ? (
               <>
