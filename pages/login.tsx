@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
-import { ArrowLeft, BriefcaseBusiness, CalendarClock, CircleDollarSign, Coffee, Hotel, LockKeyhole, MapPin, UserPlus, UsersRound } from 'lucide-react';
+import { ArrowLeft, BriefcaseBusiness, CalendarClock, CircleDollarSign, Coffee, Hotel, LockKeyhole, MapPin, UserPlus, UserSearch, UsersRound } from 'lucide-react';
 import SubmitAttendanceButton from '../components/SubmitAttendanceButton';
 
 interface LoginSite { id: number; name: string; location?: string; }
@@ -65,6 +65,7 @@ export default function Login() {
                 <Link className="soft-button submit-attendance-button" href="/submit-ot"><CalendarClock size={16} /> Submit Attendance</Link>
                 <button className="soft-button" type="button" onClick={() => openLoginForm('manage')}><UsersRound size={16} /> Manage people</button>
                 <Link className="soft-button" href="/onboard-employee"><UserPlus size={16} /> New staff onboarding</Link>
+                <Link className="soft-button" href="/recruitment"><UserSearch size={16} /> New Employee Recruitment</Link>
                 <button className="soft-button" type="button" onClick={() => openLoginForm('salary')}><CircleDollarSign size={16} /> Process Salary</button>
               </div>
             </>

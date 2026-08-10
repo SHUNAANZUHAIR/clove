@@ -25,7 +25,7 @@ export async function middleware(request: NextRequest) {
   }
   // The OT self-service timesheet is reachable without a site login (a kiosk
   // link from the sign-in screen), so it and its API must stay public.
-  if (pathname === '/submit-ot' || pathname === '/onboard-employee' || pathname.startsWith('/api/public/')) {
+  if (pathname === '/submit-ot' || pathname === '/onboard-employee' || pathname === '/recruitment' || pathname.startsWith('/api/public/')) {
     return preventSharedCaching(NextResponse.next());
   }
   if (pathname === '/login') {

@@ -168,3 +168,15 @@ CREATE TABLE IF NOT EXISTS app_settings (
     key VARCHAR(100) PRIMARY KEY,
     value TEXT
 );
+
+-- Standalone recruitment intake, independent of the employees table and not
+-- tied to any site (Clove Construction, Cafe, or Guesthouse).
+CREATE TABLE IF NOT EXISTS recruitment_candidates (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    nationality VARCHAR(50),
+    passport_number VARCHAR(50),
+    birth_date DATE,
+    profession VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
