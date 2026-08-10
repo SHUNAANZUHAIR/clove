@@ -8,15 +8,14 @@ interface LoginSite { id: number; name: string; location?: string; }
 interface QuickLogin {
   id: string;
   siteName: string;
-  brand: string;
   title: string;
   buttonLabel: string;
   icon: typeof Coffee;
 }
 
 const quickLogins: QuickLogin[] = [
-  { id: 'clove_cafe', siteName: 'Clove Cafe & Bistro', brand: 'CLOVE CAFE', title: 'Clove Cafe', buttonLabel: 'Clove Cafe login', icon: Coffee },
-  { id: 'clove_guesthouse', siteName: 'Clove Guesthouse', brand: 'CLOVE GUESTHOUSE', title: 'Clove Guesthouse', buttonLabel: 'Clove Guesthouse login', icon: Hotel },
+  { id: 'clove_cafe', siteName: 'Clove Cafe & Bistro', title: 'Clove Cafe', buttonLabel: 'Clove Cafe login', icon: Coffee },
+  { id: 'clove_guesthouse', siteName: 'Clove Guesthouse', title: 'Clove Guesthouse', buttonLabel: 'Clove Guesthouse login', icon: Hotel },
 ];
 
 type LoginMode = 'none' | 'manage' | 'salary' | string;
@@ -109,7 +108,7 @@ export default function Login() {
 
         {quickLogins.map((quickLogin) => (
           <section className="login-card quick-login-card" key={quickLogin.id}>
-            <div className="login-brand"><span><quickLogin.icon size={25} /></span><div><p>{quickLogin.brand}</p><h1>{quickLogin.title}</h1></div></div>
+            <div className="login-brand"><span><quickLogin.icon size={25} /></span><div><h1>{quickLogin.title}</h1></div></div>
             {mode !== quickLogin.id ? (
               <>
                 <p className="login-copy">Sign in to {quickLogin.siteName}.</p>
