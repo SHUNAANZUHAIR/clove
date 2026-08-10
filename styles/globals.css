@@ -197,6 +197,8 @@ button:disabled {
 .login-card-cafe { border-color: #e3c896; }
 .login-card-cafe .login-brand > span { color: #7a4a12; background: #f2e0bd; }
 .login-card-guesthouse { border-color: #a9d8dc; }
+.password-prompt-card { width: min(360px, 100%); position: relative; }
+.password-prompt-close { position: absolute; top: 16px; right: 16px; }
 .login-card-guesthouse .login-brand > span { color: #1c6672; background: #d6eef0; }
 .login-brand p { margin: 0 0 3px; color: var(--primary-ink); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.12em; }
 .login-brand h1 { margin: 0; font-size: 1.35rem; }

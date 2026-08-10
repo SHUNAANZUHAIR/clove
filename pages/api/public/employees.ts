@@ -12,25 +12,6 @@ const jobLevels = new Set(['labour', 'mason', 'carpenter', 'supervisor']);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
-    const passport = String(req.query.passport || '').trim();
-    if (passport) {
-      try {
-        const result = await query(
-          `SELECT e.id, e.name, e.site_id, s.name AS site_name
-           FROM employees e
-           LEFT JOIN sites s ON s.id = e.site_id
-           WHERE COALESCE(e.is_terminated, FALSE) = FALSE AND lower(e.id_number) = lower($1)
-           LIMIT 1`,
-          [passport]
-        );
-        if (result.rowCount === 0) return res.status(404).json({ error: 'No employee found with that passport number.' });
-        return res.status(200).json(result.rows[0]);
-      } catch (error) {
-        console.error('Public employee passport lookup error:', error);
-        return res.status(500).json({ error: 'Could not look up that passport number.' });
-      }
-    }
-
     try {
       const result = await query(
         `SELECT e.id, e.name, e.site_id, s.name AS site_name

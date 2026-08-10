@@ -1,6 +1,6 @@
 import Head from 'next/head';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarClock, Check, ChevronLeft, ChevronRight, Clock3, Download, Save, UserCheck } from 'lucide-react';
 import { Time24Select } from '../components/Time24Select';
 
@@ -149,7 +149,6 @@ export default function SubmitOt() {
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
-  const autoLoadEmployeeId = useRef<string | null>(null);
 
   const today = useMemo(() => new Date(), []);
   const currentMonth = today.getMonth() + 1;
@@ -187,25 +186,7 @@ export default function SubmitOt() {
       .then(setEmployees)
       .catch(() => setEmployees([]))
       .finally(() => setEmployeesLoading(false));
-
-    // Arriving from a passport lookup (?employee_id=) skips the name picker
-    // and jumps straight to that employee's timesheet.
-    if (!draft) {
-      const params = new URLSearchParams(window.location.search);
-      const linkedEmployeeId = params.get('employee_id');
-      if (linkedEmployeeId) {
-        setEmployeeId(linkedEmployeeId);
-        autoLoadEmployeeId.current = linkedEmployeeId;
-      }
-    }
   }, []);
-
-  useEffect(() => {
-    if (!autoLoadEmployeeId.current || employeesLoading) return;
-    const targetId = autoLoadEmployeeId.current;
-    autoLoadEmployeeId.current = null;
-    if (employees.some((employee) => employee.id.toString() === targetId)) loadTimesheet();
-  }, [employeesLoading, employees]);
 
   // Persist the in-progress timesheet so a refresh doesn't lose it, and keep
   // extending the 5-minute activity window while the employee is on step 2.

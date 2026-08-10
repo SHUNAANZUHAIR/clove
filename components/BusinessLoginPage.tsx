@@ -1,8 +1,8 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
-import { ArrowLeft, CalendarClock, CircleDollarSign, LockKeyhole, LucideIcon, UsersRound } from 'lucide-react';
-import { submitAttendanceByPassport } from '../lib/passport-lookup';
+import { ArrowLeft, CircleDollarSign, LockKeyhole, LucideIcon, UsersRound } from 'lucide-react';
+import SubmitAttendanceButton from './SubmitAttendanceButton';
 
 interface BusinessLoginPageProps {
   title: string;
@@ -43,9 +43,7 @@ export default function BusinessLoginPage({ title, siteName, icon: Icon, cardCla
           </button>
         </form>
         <div className="login-links">
-          <button className="soft-button submit-attendance-button" type="button" onClick={submitAttendanceByPassport}>
-            <CalendarClock size={16} /> Submit Attendance
-          </button>
+          <SubmitAttendanceButton />
         </div>
         <Link className="text-link login-collapse" href="/login"><ArrowLeft size={14} /> Back to CloveHR</Link>
       </section>

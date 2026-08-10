@@ -2,7 +2,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { ArrowLeft, BriefcaseBusiness, CalendarClock, CircleDollarSign, Coffee, Hotel, LockKeyhole, MapPin, UserPlus, UsersRound } from 'lucide-react';
-import { submitAttendanceByPassport } from '../lib/passport-lookup';
+import SubmitAttendanceButton from '../components/SubmitAttendanceButton';
 
 interface LoginSite { id: number; name: string; location?: string; }
 
@@ -90,9 +90,7 @@ export default function Login() {
               <Link className="soft-button" href={quickLogin.href}>
                 <quickLogin.icon size={16} /> {quickLogin.buttonLabel}
               </Link>
-              <button className="soft-button submit-attendance-button" type="button" onClick={submitAttendanceByPassport}>
-                <CalendarClock size={16} /> Submit Attendance
-              </button>
+              <SubmitAttendanceButton />
             </div>
           </section>
         ))}
