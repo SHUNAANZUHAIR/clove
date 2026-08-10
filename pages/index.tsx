@@ -1,6 +1,6 @@
 // pages/index.tsx
 import Head from 'next/head';
-import { Fragment, type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, type ChangeEvent, type FocusEvent, type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BriefcaseBusiness,
   CalendarDays,
@@ -1814,7 +1814,7 @@ function EmployeeForm({
             </label>
             <label>
               <span>Salary</span>
-              <input type="number" value={form.salary} onChange={(event) => onChange({ ...form, salary: event.target.value })} required />
+              <input type="number" value={form.salary} onChange={(event) => onChange({ ...form, salary: event.target.value })} onFocus={selectOnFocus} required />
             </label>
             <label>
               <span>Passport/ID</span>
@@ -1928,16 +1928,16 @@ function EmployeeForm({
             {form.probation_applicable && (
               <label>
                 <span>Probation months</span>
-                <input type="number" min="1" value={form.probation_months} onChange={(event) => onChange({ ...form, probation_months: event.target.value })} />
+                <input type="number" min="1" value={form.probation_months} onChange={(event) => onChange({ ...form, probation_months: event.target.value })} onFocus={selectOnFocus} />
               </label>
             )}
             <label>
               <span>Hours per day</span>
-              <input type="number" min="0" step="0.5" value={form.hours_per_day} onChange={(event) => onChange({ ...form, hours_per_day: event.target.value })} />
+              <input type="number" min="0" step="0.5" value={form.hours_per_day} onChange={(event) => onChange({ ...form, hours_per_day: event.target.value })} onFocus={selectOnFocus} />
             </label>
             <label>
               <span>Hours per week</span>
-              <input type="number" min="0" step="0.5" value={form.hours_per_week} onChange={(event) => onChange({ ...form, hours_per_week: event.target.value })} />
+              <input type="number" min="0" step="0.5" value={form.hours_per_week} onChange={(event) => onChange({ ...form, hours_per_week: event.target.value })} onFocus={selectOnFocus} />
             </label>
             <label>
               <span>Allowances / benefits</span>
@@ -2942,7 +2942,7 @@ function SalaryJourney({
               <div className="form-grid compact-grid">
                 <label>
                   <span>Absent days</span>
-                  <input type="number" min="0" max={salaryPeriodDays} value={form.absent_days} onChange={(event) => setAbsentDays(parseInt(event.target.value) || 0)} />
+                  <input type="number" min="0" max={salaryPeriodDays} value={form.absent_days} onChange={(event) => setAbsentDays(parseInt(event.target.value) || 0)} onFocus={selectOnFocus} />
                 </label>
                 <label>
                   <span>Worked days</span>
@@ -2958,11 +2958,11 @@ function SalaryJourney({
                 </label>
                 <label>
                   <span>OT hours</span>
-                  <input type="number" min="0" step="0.5" value={form.ot_hours} onChange={(event) => setOtHours(parseFloat(event.target.value) || 0)} />
+                  <input type="number" min="0" step="0.5" value={form.ot_hours} onChange={(event) => setOtHours(parseFloat(event.target.value) || 0)} onFocus={selectOnFocus} />
                 </label>
                 <label>
                   <span>OT rate / hour</span>
-                  <input type="number" min="0" step="0.01" value={form.ot_rate > 0 ? form.ot_rate : defaultOtRate} onChange={(event) => setOtRate(parseFloat(event.target.value) || 0)} />
+                  <input type="number" min="0" step="0.01" value={form.ot_rate > 0 ? form.ot_rate : defaultOtRate} onChange={(event) => setOtRate(parseFloat(event.target.value) || 0)} onFocus={selectOnFocus} />
                 </label>
               </div>
               <p className="salary-proration-note">OT rate defaults to each employee&rsquo;s basic-salary hourly rate ({formatCurrency(defaultOtRate)}/hr); edit it to apply a different rate to everyone selected.</p>
@@ -2982,7 +2982,7 @@ function SalaryJourney({
               <div className="form-grid compact-grid">
                 <label>
                   <span>{targetEmployees.length > 1 ? 'Other deduction each' : 'Other deduction'}</span>
-                  <input type="number" min="0" step="0.01" value={form.cash_advance} onChange={(event) => setOtherDeduction(parseFloat(event.target.value) || 0)} />
+                  <input type="number" min="0" step="0.01" value={form.cash_advance} onChange={(event) => setOtherDeduction(parseFloat(event.target.value) || 0)} onFocus={selectOnFocus} />
                 </label>
                 <label>
                   <span>Total other deduction</span>
@@ -3342,4 +3342,8 @@ function getEligiblePayrollDays(joinDate: string | null | undefined, salaryMonth
 
 function roundMoney(value: number) {
   return Number(value.toFixed(2));
+}
+
+function selectOnFocus(event: FocusEvent<HTMLInputElement>) {
+  event.target.select();
 }
