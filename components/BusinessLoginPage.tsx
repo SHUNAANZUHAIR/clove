@@ -3,8 +3,10 @@ import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 import { ArrowLeft, CircleDollarSign, LockKeyhole, LucideIcon, UsersRound } from 'lucide-react';
 import SubmitAttendanceButton from './SubmitAttendanceButton';
+import type { Business } from '../lib/businesses';
 
 interface BusinessLoginPageProps {
+  business: Business;
   title: string;
   siteName: string;
   icon: LucideIcon;
@@ -13,14 +15,14 @@ interface BusinessLoginPageProps {
 
 type RedirectTarget = '' | 'salary';
 
-export default function BusinessLoginPage({ title, siteName, icon: Icon, cardClass }: BusinessLoginPageProps) {
+export default function BusinessLoginPage({ business, title, siteName, icon: Icon, cardClass }: BusinessLoginPageProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async (redirectTarget: RedirectTarget) => {
     setError(''); setSubmitting(true);
-    const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site_id: 'super_admin', password }) });
+    const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ business, site_id: 'super_admin', password }) });
     setSubmitting(false);
     if (!res.ok) return setError('Incorrect password. Please try again.');
     window.location.assign(redirectTarget ? `/?tab=${redirectTarget}` : '/');
@@ -43,7 +45,7 @@ export default function BusinessLoginPage({ title, siteName, icon: Icon, cardCla
           </button>
         </form>
         <div className="login-links">
-          <SubmitAttendanceButton />
+          <SubmitAttendanceButton business={business} />
         </div>
         <Link className="text-link login-collapse" href="/login"><ArrowLeft size={14} /> Back to CloveHR</Link>
       </section>

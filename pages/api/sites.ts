@@ -1,14 +1,13 @@
 // pages/api/sites.ts
 import { NextApiRequest, NextApiResponse } from 'next';
-import { query } from '../../lib/db';
-import { requestSiteId } from '../../lib/request-auth';
-import { ensureSitePasswordSchema } from '../../lib/auth';
+import { queryFor } from '../../lib/db';
+import { requestSiteId, requestBusiness } from '../../lib/request-auth';
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const authenticatedSiteId = requestSiteId(req);
-    await ensureSitePasswordSchema();
+    const query = queryFor(requestBusiness(req));
     if (req.method === 'GET') {
       const result = await query(
         'SELECT id, name, location, created_at, (password_hash IS NOT NULL) AS has_password FROM sites WHERE ($1 = -1 OR id = $1) ORDER BY id DESC',

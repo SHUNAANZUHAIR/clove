@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { query } from '../../../lib/db';
-import { requestSiteId, isSuperAdmin } from '../../../lib/request-auth';
+import { queryFor } from '../../../lib/db';
+import { requestSiteId, requestBusiness, isSuperAdmin } from '../../../lib/request-auth';
 
 
 interface EmployeeReportRow {
@@ -52,6 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const siteId = requestSiteId(req);
     if (!isSuperAdmin(siteId)) return res.status(403).json({ error: 'Only super admin can access the team workspace.' });
+    const query = queryFor(requestBusiness(req));
     const employeeIds = normalizeEmployeeIds(req.query.employee_ids);
     if (employeeIds.length > 250) return res.status(400).json({ error: 'A maximum of 250 employees can be downloaded together' });
     const whereClause = employeeIds.length > 0 ? 'WHERE ($1 = -1 OR e.site_id = $1) AND e.id = ANY($2::int[])' : 'WHERE ($1 = -1 OR e.site_id = $1)';

@@ -6,13 +6,14 @@
 // figures come from the matching salary_transactions row (null until that
 // month's salary has been given).
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { query } from '../../../lib/db';
-import { requestSiteId, isSuperAdmin } from '../../../lib/request-auth';
+import { queryFor } from '../../../lib/db';
+import { requestSiteId, requestBusiness, isSuperAdmin } from '../../../lib/request-auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const authenticatedSiteId = requestSiteId(req);
     if (!isSuperAdmin(authenticatedSiteId)) return res.status(403).json({ error: 'Only super admin can access payroll.' });
+    const query = queryFor(requestBusiness(req));
 
     if (req.method === 'GET') {
       const month = Number(singleValue(req.query.month));

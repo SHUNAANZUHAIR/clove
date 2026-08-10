@@ -1,11 +1,12 @@
 // pages/api/salary.ts
 import { NextApiRequest, NextApiResponse } from 'next';
-import { query } from '../../lib/db';
-import { requestSiteId, isSuperAdmin } from '../../lib/request-auth';
+import { queryFor } from '../../lib/db';
+import { requestSiteId, requestBusiness, isSuperAdmin } from '../../lib/request-auth';
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    const query = queryFor(requestBusiness(req));
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_terminated BOOLEAN NOT NULL DEFAULT FALSE');
     await query('ALTER TABLE salary_transactions ADD COLUMN IF NOT EXISTS ot_hours NUMERIC(6,2) NOT NULL DEFAULT 0');
     await query('ALTER TABLE salary_transactions ADD COLUMN IF NOT EXISTS ot_rate NUMERIC(10,2) NOT NULL DEFAULT 0');
@@ -86,7 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 	      const selectedEmployeeIds = normalizeEmployeeIds(employee_ids, employee_id);
 	      const requestedSiteId = Number(site_id);
 	      const targetSiteId = authenticatedSiteId === -1 && Number.isInteger(requestedSiteId) && requestedSiteId > 0 ? requestedSiteId : authenticatedSiteId;
-	      const targets = await getSalaryTargets(targetSiteId, selectedEmployeeIds, job_level);
+	      const targets = await getSalaryTargets(query, targetSiteId, selectedEmployeeIds, job_level);
 	      if (targets.length === 0) {
 	        return res.status(400).json({ error: 'No employees found for salary entry' });
 	      }
@@ -255,7 +256,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 
-async function getSalaryTargets(siteId: number, employeeIds: number[] = [], jobLevel?: string) {
+async function getSalaryTargets(query: ReturnType<typeof queryFor>, siteId: number, employeeIds: number[] = [], jobLevel?: string) {
   if (employeeIds.length === 0 && !jobLevel) {
     const result = await query(
       `SELECT DISTINCT e.id, e.salary::float AS salary, to_char(e.join_date, 'YYYY-MM-DD') AS join_date, e.hours_per_day::float AS hours_per_day

@@ -2,7 +2,8 @@
 // keeps a copy of exactly what was recorded. Public/unauthenticated, same as
 // the rest of the /api/public/* surface.
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { query } from '../../../lib/db';
+import { queryFor } from '../../../lib/db';
+import { isValidBusiness } from '../../../lib/businesses';
 
 interface TimesheetRow {
   date: string;
@@ -44,6 +45,8 @@ const columns: PdfColumn[] = [
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   try {
+    const business = isValidBusiness(req.query.business) ? req.query.business : 'construction';
+    const query = queryFor(business);
     const employeeId = Number(singleValue(req.query.employee_id));
     const month = Number(singleValue(req.query.month));
     const year = Number(singleValue(req.query.year));

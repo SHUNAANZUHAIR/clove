@@ -1,8 +1,10 @@
 import Head from 'next/head';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CalendarClock, Check, ChevronLeft, ChevronRight, Clock3, Download, Save, UserCheck } from 'lucide-react';
 import { Time24Select } from '../components/Time24Select';
+import { isValidBusiness } from '../lib/businesses';
 
 interface RosterEmployee {
   id: number;
@@ -133,6 +135,9 @@ function buildMonthDays(month: number, year: number, saved: Map<string, SavedRec
 }
 
 export default function SubmitOt() {
+  const router = useRouter();
+  const business = isValidBusiness(router.query.business) ? router.query.business : 'construction';
+
   // Plain SSR-safe defaults — a saved draft (localStorage isn't available on
   // the server) is restored client-side after mount, in the effect below.
   const [step, setStep] = useState<1 | 2>(1);
@@ -181,12 +186,13 @@ export default function SubmitOt() {
       setViewYear(draft.viewYear);
     }
 
-    fetch('/api/public/employees')
+    if (!router.isReady) return;
+    fetch(`/api/public/employees?business=${business}`)
       .then((res) => (res.ok ? res.json() : []))
       .then(setEmployees)
       .catch(() => setEmployees([]))
       .finally(() => setEmployeesLoading(false));
-  }, []);
+  }, [router.isReady, business]);
 
   // Persist the in-progress timesheet so a refresh doesn't lose it, and keep
   // extending the 5-minute activity window while the employee is on step 2.
@@ -222,7 +228,7 @@ export default function SubmitOt() {
     setError('');
     setLoadingSheet(true);
     try {
-      const res = await fetch(`/api/public/ot?employee_id=${employeeId}&month=${targetMonth}&year=${targetYear}`);
+      const res = await fetch(`/api/public/ot?employee_id=${employeeId}&month=${targetMonth}&year=${targetYear}&business=${business}`);
       if (!res.ok) throw new Error('load-failed');
       const data = await res.json();
       const saved = new Map<string, SavedRecord>((data.records || []).map((record: SavedRecord) => [record.date, record]));
@@ -262,7 +268,7 @@ export default function SubmitOt() {
 
   const downloadTimesheetPdf = () => {
     const link = document.createElement('a');
-    link.href = `/api/public/ot-pdf?employee_id=${employeeId}&month=${viewMonth}&year=${viewYear}`;
+    link.href = `/api/public/ot-pdf?employee_id=${employeeId}&month=${viewMonth}&year=${viewYear}&business=${business}`;
     link.rel = 'noopener';
     document.body.appendChild(link);
     link.click();
@@ -271,6 +277,7 @@ export default function SubmitOt() {
 
   const buildOtPayload = () => ({
     employee_id: Number(employeeId),
+    business,
     records: rows.map((row) => ({
       date: row.date,
       status: row.status,
@@ -300,7 +307,7 @@ export default function SubmitOt() {
         throw new Error(data?.error || 'save-failed');
       }
       setSaveMessage('Saved.');
-      const refreshed = await fetch(`/api/public/ot?employee_id=${employeeId}&month=${viewMonth}&year=${viewYear}`);
+      const refreshed = await fetch(`/api/public/ot?employee_id=${employeeId}&month=${viewMonth}&year=${viewYear}&business=${business}`);
       if (refreshed.ok) {
         const data = await refreshed.json();
         setLastUpdated(data.last_updated || '');

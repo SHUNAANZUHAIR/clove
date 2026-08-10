@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { query } from '../../lib/db';
-import { requestSiteId, isSuperAdmin } from '../../lib/request-auth';
+import { queryFor } from '../../lib/db';
+import { requestSiteId, requestBusiness, isSuperAdmin } from '../../lib/request-auth';
 
 const defaults = [
   ['local', 'Local Employee'],
@@ -8,7 +8,7 @@ const defaults = [
   ['full_time_expats', 'Full Time Expats'],
 ];
 
-async function ensureGroups() {
+async function ensureGroups(query: ReturnType<typeof queryFor>) {
   await query(`CREATE TABLE IF NOT EXISTS employee_groups (
     value VARCHAR(30) PRIMARY KEY,
     label VARCHAR(80) NOT NULL,
@@ -27,7 +27,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const authenticatedSiteId = requestSiteId(req);
     if (!isSuperAdmin(authenticatedSiteId)) return res.status(403).json({ error: 'Only super admin can access the team workspace.' });
-    await ensureGroups();
+    const query = queryFor(requestBusiness(req));
+    await ensureGroups(query);
     if (req.method === 'GET') {
       const result = await query('SELECT value, label FROM employee_groups ORDER BY created_at, label');
       return res.status(200).json(result.rows);

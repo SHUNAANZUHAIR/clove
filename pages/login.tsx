@@ -3,11 +3,13 @@ import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { ArrowLeft, BriefcaseBusiness, CalendarClock, CircleDollarSign, Coffee, Hotel, LockKeyhole, MapPin, UserPlus, UserSearch, UsersRound } from 'lucide-react';
 import SubmitAttendanceButton from '../components/SubmitAttendanceButton';
+import type { Business } from '../lib/businesses';
 
 interface LoginSite { id: number; name: string; location?: string; }
 
 interface QuickLogin {
   id: string;
+  business: Business;
   href: string;
   title: string;
   buttonLabel: string;
@@ -16,8 +18,8 @@ interface QuickLogin {
 }
 
 const quickLogins: QuickLogin[] = [
-  { id: 'clove_cafe', href: '/login/clove-cafe', title: 'Clove Cafe', buttonLabel: 'Clove Cafe login', icon: Coffee, cardClass: 'login-card-cafe' },
-  { id: 'clove_guesthouse', href: '/login/clove-guesthouse', title: 'Clove Guesthouse', buttonLabel: 'Clove Guesthouse login', icon: Hotel, cardClass: 'login-card-guesthouse' },
+  { id: 'clove_cafe', business: 'clove_cafe', href: '/login/clove-cafe', title: 'Clove Cafe', buttonLabel: 'Clove Cafe login', icon: Coffee, cardClass: 'login-card-cafe' },
+  { id: 'clove_guesthouse', business: 'clove_guesthouse', href: '/login/clove-guesthouse', title: 'Clove Guesthouse', buttonLabel: 'Clove Guesthouse login', icon: Hotel, cardClass: 'login-card-guesthouse' },
 ];
 
 export default function Login() {
@@ -28,7 +30,7 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [mode, setMode] = useState<'none' | 'manage' | 'salary'>('none');
 
-  useEffect(() => { fetch('/api/auth/sites').then((res) => res.ok ? res.json() : []).then(setSites); }, []);
+  useEffect(() => { fetch('/api/auth/sites?business=construction').then((res) => res.ok ? res.json() : []).then(setSites); }, []);
 
   const openLoginForm = (nextMode: 'manage' | 'salary') => {
     setError('');
@@ -45,7 +47,7 @@ export default function Login() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setError(''); setSubmitting(true);
-    const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ site_id: siteId, password }) });
+    const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ business: 'construction', site_id: siteId, password }) });
     setSubmitting(false);
     if (!res.ok) return setError('Incorrect site or password. Please try again.');
     window.location.assign(mode === 'salary' ? '/?tab=salary' : '/');
@@ -67,7 +69,7 @@ export default function Login() {
               <>
                 <p className="login-copy">Submit your attendance, or sign in to manage a work site, the team, or payroll.</p>
                 <div className="login-links login-links-primary">
-                  <Link className="soft-button submit-attendance-button" href="/submit-ot"><CalendarClock size={16} /> Submit Attendance</Link>
+                  <Link className="soft-button submit-attendance-button" href="/submit-ot?business=construction"><CalendarClock size={16} /> Submit Attendance</Link>
                   <button className="soft-button" type="button" onClick={() => openLoginForm('manage')}><UsersRound size={16} /> Manage people</button>
                   <Link className="soft-button" href="/onboard-employee"><UserPlus size={16} /> New staff onboarding</Link>
                   <button className="soft-button" type="button" onClick={() => openLoginForm('salary')}><CircleDollarSign size={16} /> Process Salary</button>
@@ -94,7 +96,7 @@ export default function Login() {
                 <Link className="soft-button" href={quickLogin.href}>
                   <quickLogin.icon size={16} /> {quickLogin.buttonLabel}
                 </Link>
-                <SubmitAttendanceButton />
+                <SubmitAttendanceButton business={quickLogin.business} />
               </div>
             </section>
           ))}

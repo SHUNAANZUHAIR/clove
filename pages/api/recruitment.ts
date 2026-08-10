@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { query } from '../../lib/db';
+import { query, queryFor } from '../../lib/db';
 import { requestSiteId, isSuperAdmin } from '../../lib/request-auth';
+import { isValidBusiness } from '../../lib/businesses';
 
 const professionLabels: Record<string, string> = {
   mason: 'Mason',
@@ -42,17 +43,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === 'POST') {
       const candidateId = Number(req.body?.id);
       const siteId = Number(req.body?.site_id);
+      const business = req.body?.business;
       if (!Number.isInteger(candidateId) || candidateId <= 0) return res.status(400).json({ error: 'A candidate is required.' });
       if (!Number.isInteger(siteId) || siteId <= 0) return res.status(400).json({ error: 'A business/work site is required.' });
+      if (!isValidBusiness(business)) return res.status(400).json({ error: 'A valid business is required.' });
 
-      const site = await query('SELECT id FROM sites WHERE id = $1', [siteId]);
+      const businessQuery = queryFor(business);
+      const site = await businessQuery('SELECT id FROM sites WHERE id = $1', [siteId]);
       if (site.rowCount === 0) return res.status(400).json({ error: 'Selected business was not found.' });
 
       const candidate = await query('SELECT * FROM recruitment_candidates WHERE id = $1', [candidateId]);
       if (candidate.rowCount === 0) return res.status(404).json({ error: 'Candidate not found.' });
       const row = candidate.rows[0];
 
-      const employee = await query(
+      const employee = await businessQuery(
         `INSERT INTO employees (name, salary, id_number, birth_date, medium, employee_type, job_level, site_id, job_title, join_date)
          VALUES ($1, 5400, $2, $3, 'cash', 'local', $4, $5, $6, CURRENT_DATE)
          RETURNING id, name`,

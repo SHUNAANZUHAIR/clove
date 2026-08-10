@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { query } from '../../../../lib/db';
+import { queryFor } from '../../../../lib/db';
+import { isValidBusiness } from '../../../../lib/businesses';
 import { authorizeWorkflow } from '../../../../lib/workflow-auth';
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -11,6 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const siteId = authorizeWorkflow(req, res);
   if (siteId === null) return;
+  const query = queryFor(isValidBusiness(req.query.business) ? req.query.business : 'construction');
   const date = String(Array.isArray(req.query.date) ? req.query.date[0] : req.query.date || '');
   if (!datePattern.test(date)) return res.status(400).json({ error: 'date must use YYYY-MM-DD.' });
   const requestedSite = Number(Array.isArray(req.query.site_id) ? req.query.site_id[0] : req.query.site_id);

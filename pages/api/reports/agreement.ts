@@ -1,8 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { randomBytes } from 'crypto';
-import { query } from '../../../lib/db';
+import { queryFor } from '../../../lib/db';
 import { createQrMatrix } from '../../../lib/qr';
-import { requestSiteId, isSuperAdmin } from '../../../lib/request-auth';
+import { requestSiteId, requestBusiness, isSuperAdmin } from '../../../lib/request-auth';
 
 interface AgreementEmployee {
   id: number; name: string; salary: number; id_number: string | null; join_date: string | null;
@@ -48,6 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const siteId = requestSiteId(req);
     if (!isSuperAdmin(siteId)) return res.status(403).json({ error: 'Only super admin can access the team workspace.' });
+    const query = queryFor(requestBusiness(req));
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS job_description TEXT');
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS agreement_verification_token VARCHAR(64) UNIQUE');
     const whereClause = downloadAll ? 'WHERE ($1 = -1 OR e.site_id = $1)' : 'WHERE ($1 = -1 OR e.site_id = $1) AND e.id = ANY($2::int[])';
@@ -63,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const employees = result.rows as AgreementEmployee[];
     const agreements: Array<{ employee: AgreementEmployee; verificationUrl: string }> = [];
     for (const employee of employees) {
-      if (!employee.agreement_verification_token) employee.agreement_verification_token = await ensureVerificationToken(employee.id);
+      if (!employee.agreement_verification_token) employee.agreement_verification_token = await ensureVerificationToken(query, employee.id);
       const verificationUrl = `https://clovehr.vercel.app/verify-agreement/${employee.agreement_verification_token}`;
       agreements.push({ employee, verificationUrl });
     }
@@ -260,7 +261,7 @@ function buildPdf(pageContents: string[]) {
   pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`; return Buffer.from(pdf, 'latin1');
 }
 
-async function ensureVerificationToken(employeeId: number) {
+async function ensureVerificationToken(query: ReturnType<typeof queryFor>, employeeId: number) {
   const candidateToken = randomBytes(16).toString('hex');
   const updated = await query(`UPDATE employees SET agreement_verification_token = $1
     WHERE id = $2 AND agreement_verification_token IS NULL RETURNING agreement_verification_token`, [candidateToken, employeeId]);

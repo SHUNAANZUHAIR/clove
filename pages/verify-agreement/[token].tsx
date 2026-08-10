@@ -1,6 +1,7 @@
 import type { GetServerSideProps } from 'next';
 import Head from 'next/head';
-import { query } from '../../lib/db';
+import { queryFor } from '../../lib/db';
+import { businesses } from '../../lib/businesses';
 
 interface VerificationProps {
   employee: null | {
@@ -52,16 +53,21 @@ export default function VerifyAgreement({ employee }: VerificationProps) {
 export const getServerSideProps: GetServerSideProps<VerificationProps> = async ({ params }) => {
   const token = String(params?.token || '');
   if (!/^[a-f0-9]{32}$/.test(token)) return { props: { employee: null } };
-  await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS agreement_verification_token VARCHAR(64) UNIQUE');
-  await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_terminated BOOLEAN NOT NULL DEFAULT FALSE');
-  await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS terminated_at DATE');
-  const result = await query(`SELECT e.name, e.id_number, e.work_permit_number, e.nationality,
-    e.job_title, to_char(e.join_date, 'YYYY-MM-DD') AS join_date, s.name AS site_name,
-    e.is_terminated, to_char(e.terminated_at, 'YYYY-MM-DD') AS terminated_at
-    FROM employees e LEFT JOIN sites s ON s.id = e.site_id
-    WHERE e.agreement_verification_token = $1`, [token]);
-  if (result.rowCount === 0) return { props: { employee: null } };
-  const row = result.rows[0];
+
+  let row: any;
+  for (const business of businesses) {
+    const query = queryFor(business.id);
+    await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS agreement_verification_token VARCHAR(64) UNIQUE');
+    await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_terminated BOOLEAN NOT NULL DEFAULT FALSE');
+    await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS terminated_at DATE');
+    const result = await query(`SELECT e.name, e.id_number, e.work_permit_number, e.nationality,
+      e.job_title, to_char(e.join_date, 'YYYY-MM-DD') AS join_date, s.name AS site_name,
+      e.is_terminated, to_char(e.terminated_at, 'YYYY-MM-DD') AS terminated_at
+      FROM employees e LEFT JOIN sites s ON s.id = e.site_id
+      WHERE e.agreement_verification_token = $1`, [token]);
+    if (result.rowCount > 0) { row = result.rows[0]; break; }
+  }
+  if (!row) return { props: { employee: null } };
   return { props: { employee: {
     name: row.name || '-', idNumber: row.id_number || '-', workPermit: row.work_permit_number || '-',
     nationality: row.nationality || '-', jobTitle: row.job_title || '-', siteName: row.site_name || '-',

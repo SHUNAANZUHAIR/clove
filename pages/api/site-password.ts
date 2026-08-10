@@ -1,14 +1,15 @@
 // pages/api/site-password.ts
 import { NextApiRequest, NextApiResponse } from 'next';
-import { query } from '../../lib/db';
-import { requestSiteId, isSuperAdmin } from '../../lib/request-auth';
-import { ensureSitePasswordSchema, hashSitePassword, setSuperAdminPassword, verifySuperAdminPassword } from '../../lib/auth';
+import { queryFor } from '../../lib/db';
+import { requestSiteId, requestBusiness, isSuperAdmin } from '../../lib/request-auth';
+import { ensureAppSettingsSchema, hashSitePassword, setSuperAdminPassword, verifySuperAdminPassword } from '../../lib/auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const authenticatedSiteId = requestSiteId(req);
     if (!isSuperAdmin(authenticatedSiteId)) return res.status(403).json({ error: 'Only super admin can manage passwords.' });
-    await ensureSitePasswordSchema();
+    await ensureAppSettingsSchema();
+    const query = queryFor(requestBusiness(req));
 
     if (req.method === 'POST') {
       const { scope, site_id, password, current_password } = req.body;

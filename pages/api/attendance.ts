@@ -1,14 +1,15 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { query } from '../../lib/db';
-import { requestSiteId } from '../../lib/request-auth';
+import { queryFor } from '../../lib/db';
+import { requestSiteId, requestBusiness } from '../../lib/request-auth';
 
 const allowedStatuses = new Set(['present', 'absent', 'leave', 'off']);
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    await ensureAttendanceTable();
-    await ensureAttendanceHistoryTable();
+    const query = queryFor(requestBusiness(req));
+    await ensureAttendanceTable(query);
+    await ensureAttendanceHistoryTable(query);
     const authenticatedSiteId = requestSiteId(req);
 
     if (req.method === 'GET') {
@@ -164,7 +165,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-async function ensureAttendanceTable() {
+async function ensureAttendanceTable(query: ReturnType<typeof queryFor>) {
   await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_terminated BOOLEAN NOT NULL DEFAULT FALSE');
   await query(`
     CREATE TABLE IF NOT EXISTS attendance (
@@ -198,7 +199,7 @@ function normalizeTime(value: unknown) {
   return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : null;
 }
 
-async function ensureAttendanceHistoryTable() {
+async function ensureAttendanceHistoryTable(query: ReturnType<typeof queryFor>) {
   await query(`
     CREATE TABLE IF NOT EXISTS attendance_save_history (
       id SERIAL PRIMARY KEY,

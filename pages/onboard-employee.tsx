@@ -2,6 +2,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { ArrowLeft, Check, LockKeyhole, MapPin, UserPlus } from 'lucide-react';
+import { businesses, type Business } from '../lib/businesses';
 
 interface OnboardingSite {
   id: number;
@@ -38,6 +39,7 @@ const emptyForm = {
   id_number: '',
   job_title: '',
   job_level: 'labour',
+  business: 'construction' as Business,
   site_id: '',
   medium: 'cash',
 };
@@ -48,9 +50,10 @@ export default function OnboardEmployee() {
   const [loginError, setLoginError] = useState('');
   const [signingIn, setSigningIn] = useState(false);
 
-  const [sites, setSites] = useState<OnboardingSite[]>([]);
+  const [sitesByBusiness, setSitesByBusiness] = useState<Record<Business, OnboardingSite[]>>({ construction: [], clove_cafe: [], clove_guesthouse: [] });
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [candidatesLoading, setCandidatesLoading] = useState(true);
+  const [selectedBusiness, setSelectedBusiness] = useState<Record<number, Business>>({});
   const [selectedSite, setSelectedSite] = useState<Record<number, string>>({});
   const [approving, setApproving] = useState<number | null>(null);
   const [candidateError, setCandidateError] = useState('');
@@ -68,7 +71,10 @@ export default function OnboardEmployee() {
 
   useEffect(() => {
     if (!authenticated) return;
-    fetch('/api/auth/sites').then((res) => (res.ok ? res.json() : [])).then(setSites).catch(() => setSites([]));
+    Promise.all(businesses.map((business) =>
+      fetch(`/api/auth/sites?business=${business.id}`).then((res) => (res.ok ? res.json() : [])).then((rows) => [business.id, rows] as const)
+    )).then((entries) => setSitesByBusiness(Object.fromEntries(entries) as Record<Business, OnboardingSite[]>))
+      .catch(() => setSitesByBusiness({ construction: [], clove_cafe: [], clove_guesthouse: [] }));
     fetch('/api/recruitment')
       .then((res) => (res.ok ? res.json() : []))
       .then(setCandidates)
@@ -83,7 +89,7 @@ export default function OnboardEmployee() {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ site_id: 'super_admin', password }),
+      body: JSON.stringify({ business: 'construction', site_id: 'super_admin', password }),
     });
     setSigningIn(false);
     if (!res.ok) return setLoginError('Incorrect super admin password. Please try again.');
@@ -92,6 +98,7 @@ export default function OnboardEmployee() {
 
   const approveCandidate = async (candidateId: number) => {
     const siteId = selectedSite[candidateId];
+    const business = selectedBusiness[candidateId] || 'construction';
     if (!siteId) return;
     setCandidateError('');
     setApproving(candidateId);
@@ -99,7 +106,7 @@ export default function OnboardEmployee() {
       const res = await fetch('/api/recruitment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: candidateId, site_id: Number(siteId) }),
+        body: JSON.stringify({ id: candidateId, business, site_id: Number(siteId) }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -127,6 +134,7 @@ export default function OnboardEmployee() {
           id_number: form.id_number.trim(),
           job_title: form.job_title.trim(),
           job_level: form.job_level,
+          business: form.business,
           site_id: Number(form.site_id),
           medium: form.medium,
         }),
@@ -187,7 +195,7 @@ export default function OnboardEmployee() {
                         <th>Nationality</th>
                         <th>Passport</th>
                         <th>Profession</th>
-                        <th>Approve to site</th>
+                        <th>Approve to business / site</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -200,11 +208,21 @@ export default function OnboardEmployee() {
                           <td>
                             <div className="action-row">
                               <select
+                                value={selectedBusiness[candidate.id] || 'construction'}
+                                onChange={(event) => {
+                                  const business = event.target.value as Business;
+                                  setSelectedBusiness((current) => ({ ...current, [candidate.id]: business }));
+                                  setSelectedSite((current) => ({ ...current, [candidate.id]: '' }));
+                                }}
+                              >
+                                {businesses.map((business) => <option key={business.id} value={business.id}>{business.label}</option>)}
+                              </select>
+                              <select
                                 value={selectedSite[candidate.id] || ''}
                                 onChange={(event) => setSelectedSite((current) => ({ ...current, [candidate.id]: event.target.value }))}
                               >
                                 <option value="">Select site</option>
-                                {sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
+                                {sitesByBusiness[selectedBusiness[candidate.id] || 'construction'].map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
                               </select>
                               <button
                                 className="soft-button compact"
@@ -236,10 +254,15 @@ export default function OnboardEmployee() {
                 <label><span>Passport / ID number</span>
                   <input type="text" value={form.id_number} onChange={(event) => setForm({ ...form, id_number: event.target.value })} />
                 </label>
+                <label><span>Business</span>
+                  <select value={form.business} onChange={(event) => setForm({ ...form, business: event.target.value as Business, site_id: '' })}>
+                    {businesses.map((business) => <option key={business.id} value={business.id}>{business.label}</option>)}
+                  </select>
+                </label>
                 <label><span>Work site</span>
                   <select value={form.site_id} onChange={(event) => setForm({ ...form, site_id: event.target.value })}>
                     <option value="">Select site</option>
-                    {sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
+                    {sitesByBusiness[form.business].map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
                   </select>
                 </label>
                 <label><span>Job title</span>

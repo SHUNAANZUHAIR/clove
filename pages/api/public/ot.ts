@@ -3,13 +3,19 @@
 // times, which lands in the same `attendance` table the super admin's
 // "Submit attendance" flow writes to, so it feeds straight into payroll.
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { query } from '../../../lib/db';
+import { queryFor } from '../../../lib/db';
+import { isValidBusiness } from '../../../lib/businesses';
 
 const allowedStatuses = new Set(['present', 'absent', 'leave', 'off']);
 
+function resolveBusiness(value: unknown) {
+  return isValidBusiness(value) ? value : 'construction';
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    await ensureAttendanceTables();
+    const query = queryFor(resolveBusiness(req.method === 'GET' ? req.query.business : req.body?.business));
+    await ensureAttendanceTables(query);
 
     if (req.method === 'GET') {
       const employeeId = Number(singleValue(req.query.employee_id));
@@ -36,7 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          WHERE employee_id = $1 AND EXTRACT(MONTH FROM attendance_date) = $2 AND EXTRACT(YEAR FROM attendance_date) = $3`,
         [employeeId, month, year]
       );
-      const locked = await isMonthPaid(employeeId, month, year);
+      const locked = await isMonthPaid(query, employeeId, month, year);
       return res.status(200).json({
         employee: employee.rows[0],
         records: result.rows,
@@ -59,7 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Self-service always submits one month at a time — once that month's
       // salary is paid, the timesheet behind it is locked from further edits.
       const firstDate = normalizeDate(records[0]?.date);
-      if (firstDate && (await isMonthPaid(employeeId, Number(firstDate.slice(5, 7)), Number(firstDate.slice(0, 4))))) {
+      if (firstDate && (await isMonthPaid(query, employeeId, Number(firstDate.slice(5, 7)), Number(firstDate.slice(0, 4))))) {
         return res.status(409).json({ error: 'This month is locked because salary has already been paid. Contact your admin if it needs correcting.' });
       }
 
@@ -117,7 +123,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-async function ensureAttendanceTables() {
+async function ensureAttendanceTables(query: ReturnType<typeof queryFor>) {
   await query(`
     CREATE TABLE IF NOT EXISTS attendance (
       id SERIAL PRIMARY KEY,
@@ -166,7 +172,7 @@ function normalizeOtTime(value: unknown) {
   return time;
 }
 
-async function isMonthPaid(employeeId: number, month: number, year: number) {
+async function isMonthPaid(query: ReturnType<typeof queryFor>, employeeId: number, month: number, year: number) {
   const result = await query(
     `SELECT 1 FROM salary_transactions WHERE employee_id = $1 AND month = $2 AND year = $3 AND status = 'paid'`,
     [employeeId, month, year]

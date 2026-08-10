@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { query } from '../../../lib/db';
-import { requestSiteId } from '../../../lib/request-auth';
+import { queryFor } from '../../../lib/db';
+import { requestSiteId, requestBusiness } from '../../../lib/request-auth';
 
 interface AttendanceReportRow {
   attendance_date: string;
@@ -46,7 +46,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    await ensureAttendanceTable();
+    const query = queryFor(requestBusiness(req));
+    await ensureAttendanceTable(query);
     const authenticatedSiteId = requestSiteId(req);
     const requestedSiteId = Number(singleValue(req.query.site_id));
     const siteId = authenticatedSiteId === -1 && Number.isInteger(requestedSiteId) && requestedSiteId > 0 ? requestedSiteId : authenticatedSiteId;
@@ -251,7 +252,7 @@ function number(value: number) {
   return Number(value.toFixed(2)).toString();
 }
 
-async function ensureAttendanceTable() {
+async function ensureAttendanceTable(query: ReturnType<typeof queryFor>) {
   await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_terminated BOOLEAN NOT NULL DEFAULT FALSE');
   await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS terminated_at DATE');
   await query(`

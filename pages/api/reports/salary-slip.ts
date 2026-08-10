@@ -1,8 +1,8 @@
 import { randomBytes } from 'crypto';
 import { NextApiRequest, NextApiResponse } from 'next';
-import { query } from '../../../lib/db';
+import { queryFor } from '../../../lib/db';
 import { createQrMatrix } from '../../../lib/qr';
-import { requestSiteId, isSuperAdmin } from '../../../lib/request-auth';
+import { requestSiteId, requestBusiness, isSuperAdmin } from '../../../lib/request-auth';
 
 export interface SalarySlipRow {
   id: number;
@@ -42,6 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const siteId = requestSiteId(req);
     if (!isSuperAdmin(siteId)) return res.status(403).json({ error: 'Only super admin can access payroll.' });
+    const query = queryFor(requestBusiness(req));
     await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS agreement_verification_token VARCHAR(64) UNIQUE');
     const result = await query(`
       SELECT s.id, e.id AS employee_id, e.name AS employee_name, e.id_number, site.name AS site_name,
@@ -60,7 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const rows = result.rows as SalarySlipRow[];
     for (const row of rows) {
-      if (!row.agreement_verification_token) row.agreement_verification_token = await ensureVerificationToken(row.employee_id);
+      if (!row.agreement_verification_token) row.agreement_verification_token = await ensureVerificationToken(query, row.employee_id);
     }
 
     const pdf = createSalarySlipsPdf(rows);
@@ -78,7 +79,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-async function ensureVerificationToken(employeeId: number) {
+async function ensureVerificationToken(query: ReturnType<typeof queryFor>, employeeId: number) {
   const candidate = randomBytes(16).toString('hex');
   const updated = await query(`UPDATE employees SET agreement_verification_token = $1
     WHERE id = $2 AND agreement_verification_token IS NULL RETURNING agreement_verification_token`, [candidate, employeeId]);

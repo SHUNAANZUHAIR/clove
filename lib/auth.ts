@@ -1,15 +1,21 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { query } from './db';
+import { isValidBusiness, type Business } from './businesses';
 
 export const authCookieName = 'clovehr_session';
 export const authMaxAge = 60 * 60 * 24 * 30;
 
 const secret = process.env.CLOVEHR_AUTH_SECRET || 'clovehr-site-session-v1';
 
-export function createSession(siteId: number) {
+export interface Session {
+  business: Business;
+  siteId: number;
+}
+
+export function createSession(business: Business, siteId: number) {
   const expires = Math.floor(Date.now() / 1000) + authMaxAge;
-  const payload = `${siteId}.${expires}`;
+  const payload = `${business}.${siteId}.${expires}`;
   return `${payload}.${createHmac('sha256', secret).update(payload).digest('hex')}`;
 }
 
@@ -26,10 +32,10 @@ export function verifyPassword(password: unknown) {
   return first.length === second.length && timingSafeEqual(first, second);
 }
 
-// Per-site login passwords live in the database so the super admin can set or
-// change them independently. A site without its own password cannot sign in.
-export async function ensureSitePasswordSchema() {
-  await query('ALTER TABLE sites ADD COLUMN IF NOT EXISTS password_hash TEXT');
+// The shared super-admin password lives in app_settings (public schema,
+// common to all three businesses). Per-business sites.password_hash is
+// created as part of each business schema's table definition.
+export async function ensureAppSettingsSchema() {
   await query('CREATE TABLE IF NOT EXISTS app_settings (key VARCHAR(100) PRIMARY KEY, value TEXT)');
 }
 
@@ -60,15 +66,20 @@ export async function verifySitePassword(password: unknown, hash: string | null 
   return bcrypt.compare(String(password || ''), hash);
 }
 
-export function readSessionSiteId(cookieHeader?: string) {
+export function readSession(cookieHeader?: string): Session | null {
   const cookie = String(cookieHeader || '').split(';').map((item) => item.trim()).find((item) => item.startsWith(`${authCookieName}=`));
   const value = cookie?.slice(authCookieName.length + 1);
-  if (!value) return 0;
+  if (!value) return null;
   const parts = value.split('.');
-  if (parts.length !== 3 || Number(parts[1]) <= Math.floor(Date.now() / 1000)) return 0;
-  const payload = `${parts[0]}.${parts[1]}`;
+  if (parts.length !== 4) return null;
+  const [business, siteIdRaw, expiresRaw, signature] = parts;
+  if (!isValidBusiness(business) || Number(expiresRaw) <= Math.floor(Date.now() / 1000)) return null;
+  const payload = `${business}.${siteIdRaw}.${expiresRaw}`;
   const expected = createHmac('sha256', secret).update(payload).digest('hex');
-  const supplied = Buffer.from(parts[2]);
+  const supplied = Buffer.from(signature);
   const valid = Buffer.from(expected);
-  return supplied.length === valid.length && timingSafeEqual(supplied, valid) ? Number(parts[0]) : 0;
+  if (supplied.length !== valid.length || !timingSafeEqual(supplied, valid)) return null;
+  const siteId = Number(siteIdRaw);
+  if (!Number.isInteger(siteId)) return null;
+  return { business, siteId };
 }

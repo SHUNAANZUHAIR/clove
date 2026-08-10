@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { query } from '../../lib/db';
-import { requestSiteId, isSuperAdmin } from '../../lib/request-auth';
+import { queryFor } from '../../lib/db';
+import { requestSiteId, requestBusiness, isSuperAdmin } from '../../lib/request-auth';
 
 const maxPhotoPayloadLength = 2_500_000;
 const allowedPhotoDataUrl = /^data:image\/(?:jpeg|jpg|png|webp);base64,/;
@@ -22,7 +22,7 @@ const writableColumns = [
   ...agreementColumns.map(([name]) => name),
 ] as const;
 
-async function ensureAgreementColumns() {
+async function ensureAgreementColumns(query: ReturnType<typeof queryFor>) {
   for (const [name, definition] of agreementColumns) {
     await query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS ${name} ${definition}`);
   }
@@ -57,7 +57,8 @@ export const config = { api: { bodyParser: { sizeLimit: '6mb' } } };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    await ensureAgreementColumns();
+    const query = queryFor(requestBusiness(req));
+    await ensureAgreementColumns(query);
     const authenticatedSiteId = requestSiteId(req);
     if (!isSuperAdmin(authenticatedSiteId)) return res.status(403).json({ error: 'Only super admin can access the team workspace.' });
 

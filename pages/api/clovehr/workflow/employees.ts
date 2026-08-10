@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { query } from '../../../../lib/db';
+import { queryFor } from '../../../../lib/db';
+import { isValidBusiness } from '../../../../lib/businesses';
 import { authorizeWorkflow } from '../../../../lib/workflow-auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -9,6 +10,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const siteId = authorizeWorkflow(req, res);
   if (siteId === null) return;
+  const query = queryFor(isValidBusiness(req.query.business) ? req.query.business : 'construction');
   const requestedSite = Number(Array.isArray(req.query.site_id) ? req.query.site_id[0] : req.query.site_id);
   const activeOnly = String(req.query.active_only ?? 'true') !== 'false';
   const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 200);

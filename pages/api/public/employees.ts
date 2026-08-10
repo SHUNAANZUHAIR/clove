@@ -6,13 +6,19 @@
 // fully manageable (edit, terminate, agreements, etc.) from the super
 // admin's Team tab, same as any other employee.
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { query } from '../../../lib/db';
+import { queryFor } from '../../../lib/db';
+import { isValidBusiness } from '../../../lib/businesses';
 
 const jobLevels = new Set(['labour', 'mason', 'carpenter', 'supervisor']);
+
+function resolveBusiness(value: unknown) {
+  return isValidBusiness(value) ? value : 'construction';
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     try {
+      const query = queryFor(resolveBusiness(req.query.business));
       const result = await query(
         `SELECT e.id, e.name, e.site_id, s.name AS site_name
          FROM employees e
@@ -29,6 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'POST') {
     try {
+      const query = queryFor(resolveBusiness(req.body?.business));
       const name = String(req.body?.name || '').trim();
       if (!name) return res.status(400).json({ error: 'Employee name is required.' });
 
