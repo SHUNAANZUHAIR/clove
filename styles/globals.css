@@ -198,12 +198,12 @@ button:disabled {
 .login-card { width: 100%; padding: 28px; border: 1px solid var(--line); border-radius: 18px; background: var(--panel); box-shadow: 0 22px 60px rgba(32, 51, 61, 0.12); }
 .login-brand { display: flex; align-items: center; gap: 12px; }
 .login-brand > span { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 13px; color: var(--primary-ink); background: var(--primary); }
-.login-card-cafe { border-color: #e3c896; }
+.login-card-cafe { border-color: #e3c896; background: #fbf1de; }
 .login-card-cafe .login-brand > span { color: #7a4a12; background: #f2e0bd; }
-.login-card-guesthouse { border-color: #a9d8dc; }
+.login-card-guesthouse { border-color: #a9d8dc; background: #e7f5f6; }
+.login-card-guesthouse .login-brand > span { color: #1c6672; background: #d6eef0; }
 .password-prompt-card { width: min(360px, 100%); position: relative; }
 .password-prompt-close { position: absolute; top: 16px; right: 16px; }
-.login-card-guesthouse .login-brand > span { color: #1c6672; background: #d6eef0; }
 .login-brand p { margin: 0 0 3px; color: var(--primary-ink); font-size: 0.7rem; font-weight: 800; letter-spacing: 0.12em; }
 .login-brand h1 { margin: 0; font-size: 1.35rem; }
 .login-copy { margin: 18px 0; color: var(--muted); font-size: 0.86rem; line-height: 1.5; }
