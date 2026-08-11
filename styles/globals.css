@@ -2015,6 +2015,26 @@ button:disabled {
   }
 
 
+  .candidate-approve-row {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+
+  .candidate-approve-row select {
+    width: 108px;
+    min-width: 0;
+    height: 32px;
+    padding: 0 6px;
+    font-size: 0.72rem;
+  }
+
+
+  .candidate-approve-row .soft-button {
+    flex: 0 0 auto;
+  }
+
+
   .salary-table {
     min-width: 720px;
     font-size: 0.76rem;

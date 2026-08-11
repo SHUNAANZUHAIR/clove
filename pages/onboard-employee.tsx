@@ -217,7 +217,7 @@ export default function OnboardEmployee() {
                           <td>{candidate.passport_number || '—'}</td>
                           <td>{professionLabels[candidate.profession || ''] || '—'}</td>
                           <td>
-                            <div className="action-row">
+                            <div className="action-row candidate-approve-row">
                               <select
                                 value={selectedSite[candidate.id] || ''}
                                 onChange={(event) => setSelectedSite((current) => ({ ...current, [candidate.id]: event.target.value }))}
