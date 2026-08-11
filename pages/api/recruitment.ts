@@ -22,8 +22,11 @@ async function ensureTable() {
     passport_number VARCHAR(50),
     birth_date DATE,
     profession VARCHAR(20),
+    photo_data_url TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`);
+  await query('ALTER TABLE recruitment_candidates ADD COLUMN IF NOT EXISTS photo_data_url TEXT');
+  await query('ALTER TABLE employees ADD COLUMN IF NOT EXISTS photo_data_url TEXT');
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -34,7 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === 'GET') {
       const result = await query(
-        'SELECT id, name, nationality, passport_number, birth_date, profession, created_at FROM recruitment_candidates ORDER BY created_at DESC'
+        'SELECT id, name, nationality, passport_number, birth_date, profession, photo_data_url, created_at FROM recruitment_candidates ORDER BY created_at DESC'
       );
       return res.status(200).json(result.rows);
     }
@@ -53,10 +56,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const row = candidate.rows[0];
 
       const employee = await query(
-        `INSERT INTO employees (name, salary, id_number, birth_date, medium, employee_type, job_level, site_id, job_title, join_date)
-         VALUES ($1, 5400, $2, $3, 'cash', 'local', $4, $5, $6, CURRENT_DATE)
+        `INSERT INTO employees (name, salary, id_number, birth_date, medium, employee_type, job_level, site_id, job_title, join_date, photo_data_url)
+         VALUES ($1, 5400, $2, $3, 'cash', 'local', $4, $5, $6, CURRENT_DATE, $7)
          RETURNING id, name`,
-        [row.name, row.passport_number, row.birth_date, jobLevelFor(row.profession), siteId, professionLabels[row.profession] || null]
+        [row.name, row.passport_number, row.birth_date, jobLevelFor(row.profession), siteId, professionLabels[row.profession] || null, row.photo_data_url]
       );
       await query('DELETE FROM recruitment_candidates WHERE id = $1', [candidateId]);
       return res.status(200).json(employee.rows[0]);

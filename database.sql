@@ -178,5 +178,9 @@ CREATE TABLE IF NOT EXISTS recruitment_candidates (
     passport_number VARCHAR(50),
     birth_date DATE,
     profession VARCHAR(20),
+    photo_data_url TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE recruitment_candidates ADD COLUMN IF NOT EXISTS photo_data_url TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS photo_data_url TEXT;

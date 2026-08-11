@@ -16,6 +16,7 @@ interface Candidate {
   passport_number: string | null;
   birth_date: string | null;
   profession: string | null;
+  photo_data_url: string | null;
   created_at: string;
 }
 
@@ -202,6 +203,7 @@ export default function OnboardEmployee() {
                   <table className="salary-table">
                     <thead>
                       <tr>
+                        <th>Photo</th>
                         <th>Name</th>
                         <th>Nationality</th>
                         <th>Passport</th>
@@ -212,6 +214,7 @@ export default function OnboardEmployee() {
                     <tbody>
                       {candidates.map((candidate) => (
                         <tr key={candidate.id}>
+                          <td>{candidate.photo_data_url ? <img className="candidate-selfie" src={candidate.photo_data_url} alt={`${candidate.name} selfie`} loading="lazy" /> : <span className="candidate-selfie-empty">No photo</span>}</td>
                           <td>{candidate.name}</td>
                           <td>{candidate.nationality || '—'}</td>
                           <td>{candidate.passport_number || '—'}</td>

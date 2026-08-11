@@ -15,8 +15,10 @@ async function ensureTable() {
     passport_number VARCHAR(50),
     birth_date DATE,
     profession VARCHAR(20),
+    photo_data_url TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )`);
+  await query('ALTER TABLE recruitment_candidates ADD COLUMN IF NOT EXISTS photo_data_url TEXT');
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -32,12 +34,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const passportNumber = String(req.body?.passport_number || '').trim().slice(0, 50) || null;
     const birthDate = String(req.body?.birth_date || '').trim() || null;
     const profession = professions.has(req.body?.profession) ? req.body.profession : null;
+    const photoDataUrl = String(req.body?.photo_data_url || '');
+    const validPhoto = !photoDataUrl || /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(photoDataUrl);
+    if (!validPhoto || photoDataUrl.length > 280_000) {
+      return res.status(400).json({ error: 'The profile selfie is invalid or too large.' });
+    }
 
     const result = await query(
-      `INSERT INTO recruitment_candidates (name, nationality, passport_number, birth_date, profession)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO recruitment_candidates (name, nationality, passport_number, birth_date, profession, photo_data_url)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, name`,
-      [name, nationality, passportNumber, birthDate, profession]
+      [name, nationality, passportNumber, birthDate, profession, photoDataUrl || null]
     );
     return res.status(201).json(result.rows[0]);
   } catch (error) {

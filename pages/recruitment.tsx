@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
-import { useState } from 'react';
-import { ArrowLeft, Check, UserSearch } from 'lucide-react';
+import { ChangeEvent, useState } from 'react';
+import { ArrowLeft, Camera, Check, UserSearch, X } from 'lucide-react';
 
 const professions: Array<{ value: string; label: string }> = [
   { value: 'mason', label: 'Mason' },
@@ -16,13 +16,52 @@ const emptyForm = {
   passport_number: '',
   birth_date: '',
   profession: 'labour',
+  photo_data_url: '',
 };
+
+const prepareSelfie = (file: File): Promise<string> => new Promise((resolve, reject) => {
+  if (!file.type.startsWith('image/')) return reject(new Error('Please choose an image file.'));
+  const image = new Image();
+  const objectUrl = URL.createObjectURL(file);
+  image.onload = () => {
+    const size = Math.min(image.naturalWidth, image.naturalHeight);
+    const sourceX = (image.naturalWidth - size) / 2;
+    const sourceY = (image.naturalHeight - size) / 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    canvas.getContext('2d')?.drawImage(image, sourceX, sourceY, size, size, 0, 0, 256, 256);
+    URL.revokeObjectURL(objectUrl);
+    const result = canvas.toDataURL('image/jpeg', 0.72);
+    if (result.length > 280_000) return reject(new Error('The image is too large. Please choose a smaller photo.'));
+    resolve(result);
+  };
+  image.onerror = () => {
+    URL.revokeObjectURL(objectUrl);
+    reject(new Error('This image could not be read. Please choose another photo.'));
+  };
+  image.src = objectUrl;
+});
 
 export default function Recruitment() {
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [submittedName, setSubmittedName] = useState('');
+
+  const selectSelfie = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setError('');
+    try {
+      const photo = await prepareSelfie(file);
+      setForm((current) => ({ ...current, photo_data_url: photo }));
+    } catch (photoError) {
+      setError(photoError instanceof Error ? photoError.message : 'Could not prepare this photo.');
+    } finally {
+      event.target.value = '';
+    }
+  };
 
   const submit = async () => {
     setError('');
@@ -38,6 +77,7 @@ export default function Recruitment() {
           passport_number: form.passport_number.trim(),
           birth_date: form.birth_date,
           profession: form.profession,
+          photo_data_url: form.photo_data_url,
         }),
       });
       if (!res.ok) {
@@ -63,6 +103,20 @@ export default function Recruitment() {
           <>
             <p className="login-copy">Add a candidate&rsquo;s details below. You will be contacted by Clove if you are selected for the job. No login is required.</p>
             <div className="form-grid compact-grid">
+              <label className="recruitment-photo-field"><span>Profile selfie <small>(optional)</small></span>
+                <span className="recruitment-photo-control">
+                  {form.photo_data_url ? (
+                    <span className="recruitment-photo-preview">
+                      <img src={form.photo_data_url} alt="Selected profile selfie" />
+                      <button type="button" aria-label="Remove profile selfie" onClick={() => setForm((current) => ({ ...current, photo_data_url: '' }))}><X size={14} /></button>
+                    </span>
+                  ) : <span className="recruitment-photo-placeholder"><Camera size={22} /></span>}
+                  <span className="soft-button compact recruitment-photo-button"><Camera size={15} /> Choose selfie
+                    <input type="file" accept="image/*" capture="user" onChange={selectSelfie} />
+                  </span>
+                </span>
+                <small className="field-hint">The photo is automatically cropped and reduced to a tiny profile image.</small>
+              </label>
               <label><span>Full name</span>
                 <input type="text" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
               </label>
