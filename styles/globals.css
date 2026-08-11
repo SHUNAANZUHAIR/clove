@@ -444,6 +444,11 @@ button:disabled {
 }
 
 
+.content-stack > div {
+  min-width: 0;
+}
+
+
 .metric-grid,
 .form-grid {
   display: grid;
