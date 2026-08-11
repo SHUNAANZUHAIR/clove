@@ -53,6 +53,7 @@ export default function OnboardEmployee() {
   const [candidatesLoading, setCandidatesLoading] = useState(true);
   const [selectedSite, setSelectedSite] = useState<Record<number, string>>({});
   const [approving, setApproving] = useState<number | null>(null);
+  const [rejecting, setRejecting] = useState<number | null>(null);
   const [candidateError, setCandidateError] = useState('');
 
   const [form, setForm] = useState(emptyForm);
@@ -110,6 +111,24 @@ export default function OnboardEmployee() {
       setCandidateError(approveError instanceof Error ? approveError.message : 'Could not approve this candidate.');
     } finally {
       setApproving(null);
+    }
+  };
+
+  const rejectCandidate = async (candidateId: number, candidateName: string) => {
+    if (!confirm(`Reject ${candidateName}'s recruitment request? This cannot be undone.`)) return;
+    setCandidateError('');
+    setRejecting(candidateId);
+    try {
+      const res = await fetch(`/api/recruitment?id=${candidateId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || 'Could not reject this candidate.');
+      }
+      setCandidates((current) => current.filter((candidate) => candidate.id !== candidateId));
+    } catch (rejectError) {
+      setCandidateError(rejectError instanceof Error ? rejectError.message : 'Could not reject this candidate.');
+    } finally {
+      setRejecting(null);
     }
   };
 
@@ -209,10 +228,18 @@ export default function OnboardEmployee() {
                               <button
                                 className="soft-button compact"
                                 type="button"
-                                disabled={!selectedSite[candidate.id] || approving === candidate.id}
+                                disabled={!selectedSite[candidate.id] || approving === candidate.id || rejecting === candidate.id}
                                 onClick={() => approveCandidate(candidate.id)}
                               >
                                 {approving === candidate.id ? 'Approving...' : 'Approve'}
+                              </button>
+                              <button
+                                className="soft-button compact danger"
+                                type="button"
+                                disabled={approving === candidate.id || rejecting === candidate.id}
+                                onClick={() => rejectCandidate(candidate.id, candidate.name)}
+                              >
+                                {rejecting === candidate.id ? 'Rejecting...' : 'Reject'}
                               </button>
                             </div>
                           </td>
