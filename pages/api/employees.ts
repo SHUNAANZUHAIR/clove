@@ -53,7 +53,10 @@ const normalize = (body: Record<string, unknown>): Record<string, unknown> => ({
   hours_per_week: body.hours_per_week ? Number(body.hours_per_week) : null,
 });
 
-export const config = { api: { bodyParser: { sizeLimit: '6mb' } } };
+// Vercel's Node.js serverless functions hard-cap the request body at 4.5MB
+// at the platform level regardless of this setting, so stay under that
+// rather than configure a limit the platform will never actually honor.
+export const config = { api: { bodyParser: { sizeLimit: '4mb' } } };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
