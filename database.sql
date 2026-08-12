@@ -184,3 +184,17 @@ CREATE TABLE IF NOT EXISTS recruitment_candidates (
 
 ALTER TABLE recruitment_candidates ADD COLUMN IF NOT EXISTS photo_data_url TEXT;
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS photo_data_url TEXT;
+
+-- One public manager rating per employee and calendar month.
+CREATE TABLE IF NOT EXISTS employee_performance_ratings (
+    id SERIAL PRIMARY KEY,
+    employee_id INTEGER NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+    rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    rating_month DATE NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (employee_id, rating_month)
+);
+
+CREATE INDEX IF NOT EXISTS idx_employee_performance_month_rating
+    ON employee_performance_ratings (rating_month, rating DESC);

@@ -2386,3 +2386,22 @@ button:disabled {
 .field-hint { display: block; margin-top: 5px; }
 .candidate-selfie { display: block; width: 42px; height: 42px; border-radius: 50%; }
 .candidate-selfie-empty { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.performance-card { width: min(900px, calc(100% - 32px)); }
+.performance-month { max-width: 230px; margin-bottom: 18px; }
+.performance-list { display: grid; gap: 9px; margin: 8px 0 22px; }
+.performance-row { display: grid; grid-template-columns: 34px minmax(180px, 1fr) auto; align-items: center; gap: 13px; padding: 13px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-soft); transition: border-color .15s, background .15s; }
+.performance-row.is-rated { background: #fffdf5; border-color: #eadba0; }
+.performance-rank { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #edf2f5; color: var(--muted); font-size: 13px; font-weight: 700; }
+.performance-row:nth-child(1).is-rated .performance-rank { background: #f7df8b; color: #6b5100; }
+.performance-person { display: grid; gap: 3px; min-width: 0; }
+.performance-person strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.performance-person small { color: var(--muted); }
+.star-rating { display: flex; align-items: center; gap: 1px; }
+.star-rating button { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; background: transparent; color: #cbd5e1; }
+.star-rating button:hover,
+.star-rating button.active { color: #e1ad19; }
+.star-rating button:disabled { cursor: wait; }
+@media (max-width: 620px) {
+  .performance-row { grid-template-columns: 32px minmax(0, 1fr); }
+  .star-rating { grid-column: 2; }
+}
