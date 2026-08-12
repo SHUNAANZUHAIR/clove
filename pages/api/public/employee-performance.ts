@@ -29,21 +29,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (req.method === 'GET') {
       const ratingMonth = monthStart(req.query.month);
       if (!ratingMonth) return res.status(400).json({ error: 'Choose a valid month.' });
+      const siteInput = String(req.query.site_id || '').trim();
+      const siteId = siteInput ? Number(siteInput) : null;
+      if (siteId !== null && (!Number.isInteger(siteId) || siteId <= 0)) return res.status(400).json({ error: 'Choose a valid work site.' });
 
-      const result = await query(
-        `SELECT e.id, e.name, e.id_number AS passport_number, r.rating
-         FROM employees e
-         LEFT JOIN sites s ON s.id = e.site_id
-         LEFT JOIN employee_performance_ratings r
-           ON r.employee_id = e.id AND r.rating_month = $1
-         WHERE COALESCE(e.is_terminated, FALSE) = FALSE
-           AND COALESCE(LOWER(s.name), '') NOT LIKE '%cafe%'
-           AND COALESCE(LOWER(s.name), '') NOT LIKE '%guesthouse%'
-           AND COALESCE(LOWER(s.name), '') NOT LIKE '%hotel%'
-         ORDER BY r.rating DESC NULLS LAST, e.name ASC`,
-        [ratingMonth]
-      );
-      return res.status(200).json(result.rows);
+      const [employeeResult, siteResult] = await Promise.all([
+        query(
+          `SELECT e.id, e.name, e.id_number AS passport_number, e.site_id, s.name AS site_name, r.rating
+           FROM employees e
+           LEFT JOIN sites s ON s.id = e.site_id
+           LEFT JOIN employee_performance_ratings r
+             ON r.employee_id = e.id AND r.rating_month = $1
+           WHERE COALESCE(e.is_terminated, FALSE) = FALSE
+             AND COALESCE(LOWER(s.name), '') NOT LIKE '%cafe%'
+             AND COALESCE(LOWER(s.name), '') NOT LIKE '%guesthouse%'
+             AND COALESCE(LOWER(s.name), '') NOT LIKE '%hotel%'
+             AND ($2::integer IS NULL OR e.site_id = $2)
+           ORDER BY r.rating DESC NULLS LAST, e.name ASC`,
+          [ratingMonth, siteId]
+        ),
+        query(
+          `SELECT DISTINCT s.id, s.name
+           FROM sites s
+           INNER JOIN employees e ON e.site_id = s.id
+           WHERE COALESCE(e.is_terminated, FALSE) = FALSE
+             AND LOWER(s.name) NOT LIKE '%cafe%'
+             AND LOWER(s.name) NOT LIKE '%guesthouse%'
+             AND LOWER(s.name) NOT LIKE '%hotel%'
+           ORDER BY s.name ASC`
+        ),
+      ]);
+      return res.status(200).json({ employees: employeeResult.rows, sites: siteResult.rows });
     }
 
     if (req.method === 'POST') {

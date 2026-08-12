@@ -7,8 +7,12 @@ interface PerformanceEmployee {
   id: number;
   name: string;
   passport_number: string | null;
+  site_id: number | null;
+  site_name: string | null;
   rating: number | null;
 }
+
+interface PerformanceSite { id: number; name: string; }
 
 const currentMonth = () => {
   const now = new Date();
@@ -18,6 +22,8 @@ const currentMonth = () => {
 export default function EmployeePerformance() {
   const [month, setMonth] = useState(currentMonth);
   const [employees, setEmployees] = useState<PerformanceEmployee[]>([]);
+  const [sites, setSites] = useState<PerformanceSite[]>([]);
+  const [siteId, setSiteId] = useState('');
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [error, setError] = useState('');
@@ -26,16 +32,22 @@ export default function EmployeePerformance() {
     let active = true;
     setLoading(true);
     setError('');
-    fetch(`/api/public/employee-performance?month=${encodeURIComponent(month)}`)
+    const params = new URLSearchParams({ month });
+    if (siteId) params.set('site_id', siteId);
+    fetch(`/api/public/employee-performance?${params}`)
       .then(async (res) => {
         if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || 'Could not load employee performance.');
         return res.json();
       })
-      .then((data) => { if (active) setEmployees(data); })
+      .then((data) => {
+        if (!active) return;
+        setEmployees(data.employees || []);
+        setSites(data.sites || []);
+      })
       .catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : 'Could not load employee performance.'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [month]);
+  }, [month, siteId]);
 
   const rateEmployee = async (employeeId: number, rating: number) => {
     setSavingId(employeeId);
@@ -64,7 +76,10 @@ export default function EmployeePerformance() {
         <div className="login-brand"><span><Award size={25} /></span><div><p>CLOVE HR</p><h1>Employee Performance</h1></div></div>
         <p className="login-copy">Rate Clove Construction employees for the selected month. The best performers automatically move to the top.</p>
 
-        <label className="performance-month"><span>Performance month</span><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label>
+        <div className="performance-filters">
+          <label><span>Performance month</span><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label>
+          <label><span>Work site</span><select value={siteId} onChange={(event) => setSiteId(event.target.value)}><option value="">All construction sites</option>{sites.map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}</select></label>
+        </div>
         {error && <p className="login-error" role="alert">{error}</p>}
 
         {loading ? <p className="login-copy">Loading employees...</p> : error ? null : employees.length === 0 ? <p className="login-copy">No active construction employees found.</p> : (
@@ -72,7 +87,7 @@ export default function EmployeePerformance() {
             {employees.map((employee, index) => (
               <article className={`performance-row ${employee.rating ? 'is-rated' : ''}`} key={employee.id}>
                 <span className="performance-rank">{index + 1}</span>
-                <div className="performance-person"><strong>{employee.name}</strong><small>Passport: {employee.passport_number || 'Not provided'}</small></div>
+                <div className="performance-person"><strong>{employee.name}</strong><small>Passport: {employee.passport_number || 'Not provided'} · {employee.site_name || 'No site'}</small></div>
                 <div className="star-rating" aria-label={`Rate ${employee.name}`}>
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button

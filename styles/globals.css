@@ -2387,7 +2387,7 @@ button:disabled {
 .candidate-selfie { display: block; width: 42px; height: 42px; border-radius: 50%; }
 .candidate-selfie-empty { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .performance-card { width: min(900px, calc(100% - 32px)); }
-.performance-month { max-width: 230px; margin-bottom: 18px; }
+.performance-filters { display: grid; grid-template-columns: minmax(180px, 230px) minmax(220px, 1fr); gap: 12px; margin-bottom: 18px; }
 .performance-list { display: grid; gap: 9px; margin: 8px 0 22px; }
 .performance-row { display: grid; grid-template-columns: 34px minmax(180px, 1fr) auto; align-items: center; gap: 13px; padding: 13px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-soft); transition: border-color .15s, background .15s; }
 .performance-row.is-rated { background: #fffdf5; border-color: #eadba0; }
@@ -2402,6 +2402,7 @@ button:disabled {
 .star-rating button.active { color: #e1ad19; }
 .star-rating button:disabled { cursor: wait; }
 @media (max-width: 620px) {
+  .performance-filters { grid-template-columns: 1fr; }
   .performance-row { grid-template-columns: 32px minmax(0, 1fr); }
   .star-rating { grid-column: 2; }
 }
