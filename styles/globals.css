@@ -190,6 +190,10 @@ button:disabled {
 }
 
 .login-page { min-height: 100vh; display: grid; place-items: center; padding: 22px; background: radial-gradient(circle at top left, #e5f5fd, transparent 42%), var(--bg); }
+@media (max-width: 480px) {
+  .login-page { padding: 10px; }
+  .login-card { padding: 18px; }
+}
 .login-shell { width: min(430px, 100%); display: grid; gap: 20px; }
 .login-page-header { text-align: center; }
 .login-page-header h2 { margin: 0; font-size: 1.15rem; font-weight: 800; letter-spacing: 0.04em; color: var(--ink); }
@@ -2403,6 +2407,12 @@ button:disabled {
 .star-rating button:disabled { cursor: wait; }
 @media (max-width: 620px) {
   .performance-filters { grid-template-columns: 1fr; }
-  .performance-row { grid-template-columns: 32px minmax(0, 1fr); }
-  .star-rating { grid-column: 2; }
+  .performance-row { grid-template-columns: 28px minmax(0, 1fr); gap: 10px; padding: 12px; }
+  .star-rating { grid-column: 2; margin-top: 4px; }
+  .star-rating button { width: 30px; height: 30px; margin-left: -4px; }
+}
+
+@media (max-width: 480px) {
+  .performance-card { width: 100%; padding: 18px 14px; }
+  .performance-person strong { white-space: normal; }
 }
